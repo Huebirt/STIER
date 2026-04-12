@@ -1,23 +1,44 @@
 <!DOCTYPE html>
+<html lang="en">
 <head>
     <title>Tier List</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=search" />
 </head>
 
 <body>
+    <header>
+        <div class="header-content">
+            <span class="header-title">Tier List</span>
+            <form>
+                <div class="search">
+                    <span class="search-icon material-symbols-outlined">search</span>
+                    <input class="search-input" type="search" placeholder="Search">
+                </div>
+            </form>
+            <div class="off-screen-menu">
+                <ul>
+                    <li>Home</li>
+                    <li>Settings</li>
+                    <li>Login</li>
+                </ul>
+            </div>
+            <nav>
+                <div class="ham-menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </nav>
+        </div>
+    </header>
 
-<header>Tier List</header>
+    <p>Hello I'm Hugh McCredie.
+        My goal was to design a tier list maker
+        that is visually pleasing and easy to use.
+        Hope you enjoy!
+    </p>
 
-<h2>Hello!</h2>
-
-<script>
-    const hamburger = document.querySelector('.hamburger');
-    const navMenu = document.querySelector('.nav-menu');
-
-    hamburger.addEventListener('click', () => {
-        navMenu.classList.toggle('active');
-    });
-</script>
-
+    <script src="script.js"></script>
 </body>
-
+</html>
