@@ -10,12 +10,15 @@
     <header>
         <div class="header-content">
             <span class="header-title">Tier List</span>
-            <form>
-                <div class="search">
-                    <span class="search-icon material-symbols-outlined">search</span>
-                    <input class="search-input" type="search" placeholder="Search">
-                </div>
-            </form>
+            <div class="search-wrapper">
+                <form>
+                    <div class="search">
+                        <span class="search-icon material-symbols-outlined">search</span>
+                        <input class="search-input" type="search" placeholder="Search">
+                    </div>
+                </form>
+                <div class="search-dropdown" id="search-dropdown"></div>
+            </div>
             <div class="off-screen-menu">
                 <ul>
                     <li>Home</li>
@@ -38,8 +41,6 @@
         that is visually pleasing and easy to use.
         Hope you enjoy!
     </p>
-
-    <script src="script.js"></script>
 
     <div class="tierlist">
         <div class="tier-row">
@@ -67,6 +68,8 @@
             <div class="tier-zone" data-tier="F"></div>
         </div>
     </div>
+    <div class="game-pool" id="game-pool"></div>
 
+    <script src="script.js"></script>
 </body>
 </html>
