@@ -17,10 +17,11 @@ header {
 .header-content {
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 
 .header-title {
-    flex: 1;
+    width: 200px;
     font-size: 2rem;
     font-weight: bold;
 }
@@ -41,7 +42,7 @@ p {
     padding: var(--padding);
     border-radius: 28px;
     background-color: #f6f6f6;
-    width: 350px;
+    width: clamp(200px, 40vw, 600px);
 }
 
 .search-input {
@@ -79,7 +80,7 @@ p {
 }
 
 nav {
-    flex: 1;
+    width: 200px;
     display: flex;
     justify-content: flex-end;
 }
@@ -118,4 +119,49 @@ nav {
 .ham-menu.active span:nth-child(3) {
     top: 50%;
     transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.tierlist {
+    margin: 20px;
+    border: 2px solid #000000;
+}
+
+.tier-row {
+    display: flex;
+    height: 90px;
+    border-bottom: 2px solid #000000;
+}
+
+.tier-row:last-child {
+    border-bottom: none;
+}
+
+.tier-label {
+    width: 90px;
+    min-width: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: monospace;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+    border-right: 2px solid #000000;
+}
+
+.tier-label.s { background-color: #ff7f7f; }
+.tier-label.a { background-color: #ffbf7f; }
+.tier-label.b { background-color: #ffff7f; }
+.tier-label.c { background-color: #7fff7f; }
+.tier-label.d { background-color: #7fbfff; }
+.tier-label.f { background-color: #bf7fff; }
+
+.tier-zone {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 8px;
+    gap: 8px;
+    background-color: #1a1a2e;
 }
