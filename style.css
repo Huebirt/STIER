@@ -20,10 +20,22 @@ header {
     justify-content: space-between;
 }
 
+.header-logo {
+    height: 70px;
+    width: 175px;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+
 .header-title {
-    width: 200px;
+    /* Remove height and width here if you only want to style the text */
     font-size: 2rem;
     font-weight: bold;
+    display: flex;
+    align-items: center;
 }
 
 h1 { font-family: monospace; font-size: 32px; padding: 20px; }
@@ -73,10 +85,27 @@ p {
     align-items: center;
     font-size: 3rem;
     transition: .3s ease;
+    z-index: 1000;
 }
 
 .off-screen-menu.active {
     right: 0;
+}
+
+.off-screen-menu a {
+    color: white;
+    text-decoration: none;
+}
+
+.off-screen-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: center;
+}
+
+.off-screen-menu li {
+    padding: 16px 0;
 }
 
 nav {
@@ -121,6 +150,67 @@ nav {
     transform: translate(-50%, -50%) rotate(-45deg);
 }
 
+.upload-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 20px 0 20px;
+}
+
+.upload-section input[type="file"] {
+    display: none;
+}
+
+.upload-section label {
+    padding: 8px 16px;
+    background-color: #6f89ff;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 0.9rem;
+    transition: background-color 0.15s ease;
+}
+
+.upload-section label:hover {
+    background-color: #5a74e0;
+}
+
+#download-btn {
+    margin: 16px auto 8px auto;
+    display: block;
+    font-size: 1rem;
+    padding: 10px 24px;
+    border-radius: 6px;
+    background: #6f89ff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-family: monospace;
+    transition: background-color 0.15s ease;
+}
+
+#download-btn:hover {
+    background-color: #5a74e0;
+}
+
+#add-row-btn {
+    margin: 16px auto 8px auto;
+    display: block;
+    font-size: 1rem;
+    padding: 10px 24px;
+    border-radius: 6px;
+    background: #6f89ff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-family: monospace;
+    transition: background-color 0.15s ease;
+}
+#add-row-btn:hover {
+    background-color: #5a74e0;
+}
+
 .tierlist {
     margin: 20px;
     border: 2px solid #000000;
@@ -137,6 +227,7 @@ nav {
 }
 
 .tier-label {
+    position: relative;
     width: 90px;
     min-width: 90px;
     min-height: 90px;
@@ -234,3 +325,52 @@ nav {
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
+#color-picker-popup {
+    position: absolute;
+    display: grid;
+    grid-template-columns: repeat(6, 28px);
+    gap: 4px;
+    padding: 8px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+    border-color: #333;
+}
+
+.delete-tier-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: none;
+    background-color: rgba(0,0,0,0.3);
+    color: white;
+    font-size: 0.6rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.tier-label:hover .delete-tier-btn {
+    opacity: 1;
+}
