@@ -239,6 +239,11 @@ nav {
     font-weight: bold;
     color: #333;
     border-right: 2px solid #000000;
+    overflow: hidden;
+    word-break: break-word;
+    text-align: center;
+    padding: 4px;
+    box-sizing: border-box;
 }
 
 .tier-label.s { background-color: #ff7f7f; }
@@ -372,5 +377,34 @@ nav {
 }
 
 .tier-label:hover .delete-tier-btn {
+    opacity: 1;
+}
+
+.game-card-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.delete-image-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 2;
+}
+
+.game-card-wrapper:hover .delete-image-btn {
     opacity: 1;
 }

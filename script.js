@@ -83,6 +83,11 @@ function initializeSearch() {
 // ============================================================================
 
 function createDraggableImage(src, alt) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'game-card-wrapper';
+    wrapper.style.position = 'relative';
+    wrapper.style.display = 'inline-block';
+
     const img = document.createElement('img');
     img.src = src;
     img.alt = alt;
@@ -90,34 +95,56 @@ function createDraggableImage(src, alt) {
     img.draggable = true;
 
     img.addEventListener('dragstart', () => {
-        draggedCard = img;
-        img.classList.add('dragging');
+        draggedCard = wrapper;
         img.style.opacity = '0.5';
     });
 
     img.addEventListener('dragend', () => {
         img.style.opacity = '1';
-        img.classList.remove('dragging');
         draggedCard = null;
     });
 
-    return img;
+    // Add delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '×';
+    deleteBtn.className = 'delete-image-btn';
+    deleteBtn.style.position = 'absolute';
+    deleteBtn.style.top = '2px';
+    deleteBtn.style.right = '2px';
+    deleteBtn.style.background = 'rgba(0,0,0,0.5)';
+    deleteBtn.style.color = 'white';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.borderRadius = '50%';
+    deleteBtn.style.width = '20px';
+    deleteBtn.style.height = '20px';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.display = 'flex';
+    deleteBtn.style.alignItems = 'center';
+    deleteBtn.style.justifyContent = 'center';
+    deleteBtn.style.fontSize = '1rem';
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrapper.remove();
+    });
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(deleteBtn);
+    return wrapper;
 }
 
 function addGameToPool(game) {
-    const img = createDraggableImage(game.tiny_image, game.name);
-    gamePool.appendChild(img);
+    const imgWrapper = createDraggableImage(game.tiny_image, game.name);
+    gamePool.appendChild(imgWrapper);
 }
 
 function addImageToPool(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-        const img = createDraggableImage(e.target.result, file.name);
-        gamePool.appendChild(img);
+        const imgWrapper = createDraggableImage(e.target.result, file.name);
+        gamePool.appendChild(imgWrapper);
     };
     reader.readAsDataURL(file);
 }
-
 // ============================================================================
 // FILE UPLOAD HANDLING
 // ============================================================================
@@ -238,18 +265,22 @@ function initializeDragDrop() {
 
 function downloadTierlist() {
     const element = document.getElementById('tierlist');
-    if (!element) {
-        console.warn('Tierlist element not found');
-        return;
-    }
+    // Wait for all images in the tierlist to load
+    const images = element.querySelectorAll('img');
+    const promises = Array.from(images).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+            img.onload = img.onerror = resolve;
+        });
+    });
 
-    html2canvas(element).then(canvas => {
-        const link = document.createElement('a');
-        link.download = 'tierlist.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    }).catch(err => {
-        console.error('Error generating image:', err);
+    Promise.all(promises).then(() => {
+        html2canvas(element, { useCORS: true }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'tierlist.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
     });
 }
 
@@ -317,6 +348,21 @@ function addColorPicker(label) {
                 }
             });
         }, 0);
+    });
+}
+
+function autoShrinkLabel(label) {
+    label.addEventListener('input', () => {
+        const length = label.innerText.trim().length;
+        if (length <= 2) {
+            label.style.fontSize = '2rem';
+        } else if (length <= 5) {
+            label.style.fontSize = '1.2rem';
+        } else if (length <= 10) {
+            label.style.fontSize = '0.85rem';
+        } else {
+            label.style.fontSize = '0.65rem';
+        }
     });
 }
 
@@ -401,6 +447,7 @@ function addNewRow() {
     addColorPicker(label);
     makeRowDraggable(label, newRow);
     addDeleteButton(label, newRow);
+    autoShrinkLabel(label);
     label.focus();
 }
 
@@ -422,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addColorPicker(label);
         makeRowDraggable(label, row);
         addDeleteButton(label, row);
+        autoShrinkLabel(label);
     });
 
     initializeRowDragging();
