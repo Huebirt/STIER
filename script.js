@@ -96,11 +96,13 @@ function createDraggableImage(src, alt) {
 
     img.addEventListener('dragstart', () => {
         draggedCard = wrapper;
+        wrapper.classList.add('dragging');
         img.style.opacity = '0.5';
     });
 
     img.addEventListener('dragend', () => {
         img.style.opacity = '1';
+        wrapper.classList.remove('dragging');
         draggedCard = null;
     });
 
@@ -195,8 +197,8 @@ function initializeFileUploads() {
 // ============================================================================
 
 function getDragAfterElement(zone, mouseX) {
-    const cards = [...zone.querySelectorAll('.game-card:not(.dragging)')];
-
+    // Use .game-card-wrapper for drag targets
+    const cards = [...zone.querySelectorAll('.game-card-wrapper:not(.dragging)')];
     return cards.reduce((closest, card) => {
         const box = card.getBoundingClientRect();
         const offset = mouseX - box.left - box.width / 2;
