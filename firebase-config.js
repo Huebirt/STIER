@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -197,7 +197,6 @@ async function saveTierlist() {
         const id = window.currentTierlistId || generateId();
         const isNew = !window.currentTierlistId;
 
-        // Prompt for a name on first save
         let name = window.currentTierlistName || '';
         if (isNew) {
             name = prompt('Name your tier list:', 'My Tier List') || 'My Tier List';
@@ -214,10 +213,7 @@ async function saveTierlist() {
         window.currentTierlistId = id;
         window.currentTierlistName = name;
 
-        const shareUrl = `${window.location.origin}${window.location.pathname}?id=${id}`;
-        await navigator.clipboard.writeText(shareUrl);
-
-        saveBtn.textContent = 'Link Copied!';
+        saveBtn.textContent = 'Saved!';
         setTimeout(() => {
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;
@@ -230,6 +226,35 @@ async function saveTierlist() {
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;
         }, 2000);
+    }
+}
+
+// ============================================================================
+// SHARE (copies link to clipboard, saves first if needed)
+// ============================================================================
+
+async function shareTierlist() {
+    const shareBtn = document.getElementById('share-btn');
+
+    // Save first if not saved yet
+    if (!window.currentTierlistId) {
+        await saveTierlist();
+        if (!window.currentTierlistId) return; // save failed or cancelled
+    }
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?id=${window.currentTierlistId}`;
+
+    try {
+        await navigator.clipboard.writeText(shareUrl);
+        shareBtn.title = 'Link Copied!';
+        shareBtn.classList.add('shared');
+        setTimeout(() => {
+            shareBtn.title = 'Share';
+            shareBtn.classList.remove('shared');
+        }, 2000);
+    } catch (err) {
+        // Fallback: prompt with the URL
+        prompt('Copy this link:', shareUrl);
     }
 }
 
@@ -293,8 +318,7 @@ async function showMyProjects() {
     try {
         const q = query(
             collection(db, 'tierlists'),
-            where('uid', '==', user.uid),
-            orderBy('updatedAt', 'desc')
+            where('uid', '==', user.uid)
         );
         const snapshot = await getDocs(q);
         const body = modal.querySelector('.projects-modal-body');
@@ -304,8 +328,13 @@ async function showMyProjects() {
             return;
         }
 
+        // Sort by updatedAt client-side
+        const docs = [];
+        snapshot.forEach(docSnap => docs.push(docSnap));
+        docs.sort((a, b) => (b.data().updatedAt || '').localeCompare(a.data().updatedAt || ''));
+
         body.innerHTML = '';
-        snapshot.forEach(docSnap => {
+        docs.forEach(docSnap => {
             const data = docSnap.data();
             const item = document.createElement('div');
             item.className = 'project-item';
@@ -376,6 +405,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const myProjectsBtn = document.getElementById('my-projects-btn');
     if (myProjectsBtn) {
         myProjectsBtn.addEventListener('click', showMyProjects);
+    }
+
+    // Share button
+    const shareBtn = document.getElementById('share-btn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', shareTierlist);
     }
 
     // Load shared tier list if ?id= is in URL

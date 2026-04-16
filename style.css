@@ -187,12 +187,19 @@ nav {
     background-color: #5a74e0;
 }
 
+.toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 16px 20px 8px 20px;
+    flex-wrap: wrap;
+}
+
 #download-btn,
 #add-row-btn,
 #save-btn,
 #my-projects-btn {
-    margin: 16px auto 8px auto;
-    display: block;
+    margin: 0;
     font-size: 1rem;
     padding: 10px 24px;
     border-radius: 6px;
@@ -211,9 +218,46 @@ nav {
     background-color: #5a74e0;
 }
 
+.tierlist-wrapper {
+    position: relative;
+    margin: 0 20px;
+}
+
 .tierlist {
-    margin: 20px;
     border: 2px solid #000000;
+}
+
+.share-btn {
+    position: absolute;
+    bottom: -18px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: #6f89ff;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    transition: background-color 0.15s ease, transform 0.15s ease;
+    padding: 0;
+    z-index: 10;
+}
+
+.share-btn:hover {
+    background: #5a74e0;
+    transform: scale(1.1);
+}
+
+.share-btn.shared {
+    background: #27ae60;
+}
+
+.share-btn .material-symbols-outlined {
+    font-size: 20px;
 }
 
 .tier-row {
