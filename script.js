@@ -130,7 +130,7 @@ function addImageToPool(file) {
     reader.readAsDataURL(file);
 }
 
-function compressImage(src, callback, maxWidth = 200, quality = 0.8) {
+function compressImage(src, callback, maxWidth = 200, quality = 0.7) {
     const img = new Image();
     img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -139,7 +139,7 @@ function compressImage(src, callback, maxWidth = 200, quality = 0.8) {
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        callback(canvas.toDataURL('image/png'));
+        callback(canvas.toDataURL('image/jpeg', quality));
     };
     img.src = src;
 }
