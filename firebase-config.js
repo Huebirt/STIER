@@ -67,7 +67,7 @@ function updateAuthUI(user) {
     // Update save button visibility
     const saveBtn = document.getElementById('save-btn');
     if (saveBtn) {
-        saveBtn.textContent = user ? 'Save & Share' : 'Login to Save';
+        saveBtn.textContent = user ? 'Save' : 'Login to Save';
     }
 
     // Update my projects button

@@ -122,10 +122,26 @@ function addGameToPool(game) {
 function addImageToPool(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-        const imgWrapper = createDraggableImage(e.target.result, file.name);
-        gamePool.appendChild(imgWrapper);
+        compressImage(e.target.result, (compressedSrc) => {
+            const imgWrapper = createDraggableImage(compressedSrc, file.name);
+            gamePool.appendChild(imgWrapper);
+        });
     };
     reader.readAsDataURL(file);
+}
+
+function compressImage(src, callback, maxWidth = 200, quality = 0.8) {
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(maxWidth / img.width, 1);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        callback(canvas.toDataURL('image/png'));
+    };
+    img.src = src;
 }
 // ============================================================================
 // FILE UPLOAD HANDLING
