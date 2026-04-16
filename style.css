@@ -72,18 +72,19 @@ p {
 }
 
 .off-screen-menu {
-    background-color: rgb(34, 37, 49);
+    background-color: #00183b;
     height: 100vh;
     width: 100%;
-    max-width: 450px;
+    max-width: 300px;
     position: fixed;
     top: 0;
-    right: -450px;
+    right: -300px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    font-size: 3rem;
+    font-size: 1.4rem;
+    font-family: monospace;
     transition: .3s ease;
     z-index: 1000;
 }
@@ -92,7 +93,8 @@ p {
     right: 0;
 }
 
-.off-screen-menu a {
+.off-screen-menu a,
+.off-screen-menu li {
     color: white;
     text-decoration: none;
 }
@@ -105,7 +107,15 @@ p {
 }
 
 .off-screen-menu li {
-    padding: 16px 0;
+    padding: 14px 32px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.off-screen-menu li:hover {
+    background-color: #6f89ff;
+    color: #ffffff;
 }
 
 nav {
