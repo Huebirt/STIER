@@ -119,6 +119,7 @@ nav {
     width: 50px;
     position: relative;
     cursor: pointer;
+    z-index: 1001;
 }
 
 .ham-menu span {
