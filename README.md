@@ -2,7 +2,7 @@
 
 A simple, browser-based tier list maker. Search for Steam games, upload your own images, drag and drop them into customizable tier rows, and export the result as a PNG.
 
-🔗 **Live site:** [mcdevie.github.io/STIER](https://mcdevie.github.io/STIER/)
+🔗 **Live site:** [mcdevie.github.io/STIER](https://huebirt.github.io/STIER/)
 
 ## Features
 
