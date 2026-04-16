@@ -23,9 +23,10 @@
             </div>
             <div class="off-screen-menu">
                 <ul>
+                    <li class="user-display" style="display:none; font-size:0.9rem; color:#6f89ff;"></li>
                     <li><a href="teirmaker.html">Tier Maker</a></li>
                     <li>Settings</li>
-                    <li>Login</li>
+                    <li class="login-btn">Login</li>
                 </ul>
             </div>
             <nav>
@@ -39,6 +40,8 @@
     </header>
 
     <button id="download-btn">Download Tier List</button>
+    <button id="save-btn">Login to Save</button>
+    <button id="my-projects-btn" style="display:none">My Projects</button>
     <button id="add-row-btn">+ Add Row</button>
 
     <div id="tierlist" class="tierlist">
@@ -78,5 +81,6 @@
     <div class="game-pool" id="game-pool"></div>
 
     <script src="script.js"></script>
+    <script type="module" src="firebase-config.js"></script>
 </body>
 </html>

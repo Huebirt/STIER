@@ -441,6 +441,18 @@ function addNewRow() {
 }
 
 // ============================================================================
+// EXPOSE FUNCTIONS FOR FIREBASE MODULE
+// ============================================================================
+
+window.createDraggableImage = createDraggableImage;
+window.setupZoneDragHandlers = setupZoneDragHandlers;
+window.addColorPicker = addColorPicker;
+window.makeRowDraggable = makeRowDraggable;
+window.addDeleteButton = addDeleteButton;
+window.autoShrinkLabel = autoShrinkLabel;
+window.initializeRowDragging = initializeRowDragging;
+
+// ============================================================================
 // INITIALIZATION
 // ============================================================================
 
