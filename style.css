@@ -357,7 +357,7 @@ nav {
 }
 
 .game-card {
-    height: 80px;
+    height: 50px;
     width: auto;
     object-fit: contain;
     border-radius: 4px;

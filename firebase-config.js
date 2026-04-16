@@ -5,6 +5,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAV5tvRqqxJVuqdrI_Du7x9fEvOF4wzX3c",
@@ -19,6 +20,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 // ============================================================================
@@ -172,6 +174,36 @@ function generateId(length = 8) {
 }
 
 // ============================================================================
+// UPLOAD IMAGES TO FIREBASE STORAGE
+// ============================================================================
+
+async function uploadBase64Images(data, tierlistId) {
+    let imgIndex = 0;
+
+    async function processImage(imgObj) {
+        // Skip if already a URL (Steam images, previously uploaded)
+        if (!imgObj.src.startsWith('data:')) return imgObj;
+
+        const path = `tierlists/${tierlistId}/${imgIndex++}_${Date.now()}.png`;
+        const storageRef = ref(storage, path);
+        await uploadString(storageRef, imgObj.src, 'data_url');
+        const url = await getDownloadURL(storageRef);
+        return { src: url, alt: imgObj.alt };
+    }
+
+    // Process all rows
+    for (let i = 0; i < data.rows.length; i++) {
+        const row = data.rows[i];
+        row.images = await Promise.all(row.images.map(processImage));
+    }
+
+    // Process pool
+    data.poolImages = await Promise.all(data.poolImages.map(processImage));
+
+    return data;
+}
+
+// ============================================================================
 // SAVE TO FIREBASE (requires login)
 // ============================================================================
 
@@ -188,12 +220,6 @@ async function saveTierlist() {
     saveBtn.disabled = true;
 
     try {
-        const data = serializeTierlist();
-        const json = JSON.stringify(data);
-        if (json.length > 1_000_000) {
-            alert('Warning: Your tier list contains large uploaded images. Only Steam search images are guaranteed to save correctly.');
-        }
-
         const id = window.currentTierlistId || generateId();
         const isNew = !window.currentTierlistId;
 
@@ -201,6 +227,11 @@ async function saveTierlist() {
         if (isNew) {
             name = prompt('Name your tier list:', 'My Tier List') || 'My Tier List';
         }
+
+        let data = serializeTierlist();
+
+        // Upload any base64 images to Storage, replace with URLs
+        data = await uploadBase64Images(data, id);
 
         await setDoc(doc(db, 'tierlists', id), {
             data: data,
