@@ -85,52 +85,32 @@ function initializeSearch() {
 function createDraggableImage(src, alt) {
     const wrapper = document.createElement('div');
     wrapper.className = 'game-card-wrapper';
-    wrapper.style.position = 'relative';
-    wrapper.style.display = 'inline-block';
 
     const img = document.createElement('img');
     img.src = src;
     img.alt = alt;
-    img.classList.add('game-card');
+    img.className = 'game-card';
     img.draggable = true;
 
     img.addEventListener('dragstart', () => {
         draggedCard = wrapper;
         wrapper.classList.add('dragging');
-        img.style.opacity = '0.5';
     });
 
     img.addEventListener('dragend', () => {
-        img.style.opacity = '1';
         wrapper.classList.remove('dragging');
         draggedCard = null;
     });
 
-    // Add delete button
     const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = '×';
+    deleteBtn.innerHTML = '&times;';
     deleteBtn.className = 'delete-image-btn';
-    deleteBtn.style.position = 'absolute';
-    deleteBtn.style.top = '2px';
-    deleteBtn.style.right = '2px';
-    deleteBtn.style.background = 'rgba(0,0,0,0.5)';
-    deleteBtn.style.color = 'white';
-    deleteBtn.style.border = 'none';
-    deleteBtn.style.borderRadius = '50%';
-    deleteBtn.style.width = '20px';
-    deleteBtn.style.height = '20px';
-    deleteBtn.style.cursor = 'pointer';
-    deleteBtn.style.display = 'flex';
-    deleteBtn.style.alignItems = 'center';
-    deleteBtn.style.justifyContent = 'center';
-    deleteBtn.style.fontSize = '1rem';
     deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         wrapper.remove();
     });
 
-    wrapper.appendChild(img);
-    wrapper.appendChild(deleteBtn);
+    wrapper.append(img, deleteBtn);
     return wrapper;
 }
 
@@ -355,7 +335,14 @@ function addColorPicker(label) {
 
 function autoShrinkLabel(label) {
     label.addEventListener('input', () => {
-        const length = label.innerText.trim().length;
+        // Get only the text content, excluding the delete button
+        const text = Array.from(label.childNodes)
+            .filter(node => node.nodeType === Node.TEXT_NODE)
+            .map(node => node.textContent)
+            .join('')
+            .trim();
+        const length = text.length;
+
         if (length <= 2) {
             label.style.fontSize = '2rem';
         } else if (length <= 5) {
@@ -371,7 +358,7 @@ function autoShrinkLabel(label) {
 function addDeleteButton(label, row) {
     const deleteBtn = document.createElement('button');
     deleteBtn.classList.add('delete-tier-btn');
-    deleteBtn.textContent = '✕';
+    deleteBtn.innerHTML = '&times;';
     deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const pool = document.getElementById('game-pool');

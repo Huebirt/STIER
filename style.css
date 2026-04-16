@@ -176,24 +176,7 @@ nav {
     background-color: #5a74e0;
 }
 
-#download-btn {
-    margin: 16px auto 8px auto;
-    display: block;
-    font-size: 1rem;
-    padding: 10px 24px;
-    border-radius: 6px;
-    background: #6f89ff;
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    font-family: monospace;
-    transition: background-color 0.15s ease;
-}
-
-#download-btn:hover {
-    background-color: #5a74e0;
-}
-
+#download-btn,
 #add-row-btn {
     margin: 16px auto 8px auto;
     display: block;
@@ -207,6 +190,8 @@ nav {
     font-family: monospace;
     transition: background-color 0.15s ease;
 }
+
+#download-btn:hover,
 #add-row-btn:hover {
     background-color: #5a74e0;
 }
@@ -366,7 +351,8 @@ nav {
     border: none;
     background-color: rgba(0,0,0,0.3);
     color: white;
-    font-size: 0.6rem;
+    font-size: 1rem;
+    line-height: 1;
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.15s ease;
@@ -385,26 +371,36 @@ nav {
     display: inline-block;
 }
 
+.game-card-wrapper.dragging {
+    opacity: 0.5;
+}
+
 .delete-image-btn {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    background: rgba(0,0,0,0.5);
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    background: rgba(0, 0, 0, 0.5);
     color: white;
     border: none;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1rem;
+    cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
     z-index: 2;
+    padding: 0;
 }
 
 .game-card-wrapper:hover .delete-image-btn {
     opacity: 1;
+}
+
+.delete-image-btn:hover {
+    background: #e74c3c;
 }
