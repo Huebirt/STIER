@@ -8,6 +8,108 @@
 
 let draggedCard = null;
 
+// ============================================================================
+// UNDO / REDO HISTORY
+// ============================================================================
+
+const undoStack = [];
+const redoStack = [];
+const MAX_HISTORY = 50;
+
+function captureState() {
+    const tierlist = document.getElementById('tierlist');
+    const pool = document.getElementById('game-pool');
+    if (!tierlist || !pool) return null;
+    return { tierlistHTML: tierlist.innerHTML, poolHTML: pool.innerHTML };
+}
+
+function pushUndo() {
+    const state = captureState();
+    if (!state) return;
+    undoStack.push(state);
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    redoStack.length = 0;
+    updateUndoRedoButtons();
+}
+
+function reattachDragListeners(wrapper) {
+    const img = wrapper.querySelector('img.game-card');
+    const deleteBtn = wrapper.querySelector('.delete-image-btn');
+    if (img) {
+        img.draggable = true;
+        img.addEventListener('dragstart', () => {
+            draggedCard = wrapper;
+            wrapper.classList.add('dragging');
+        });
+        img.addEventListener('dragend', () => {
+            wrapper.classList.remove('dragging');
+            draggedCard = null;
+        });
+    }
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            pushUndo();
+            wrapper.remove();
+        });
+    }
+}
+
+function restoreState(state) {
+    const tierlist = document.getElementById('tierlist');
+    const pool = document.getElementById('game-pool');
+    if (!tierlist || !pool) return;
+
+    tierlist.innerHTML = state.tierlistHTML;
+    pool.innerHTML = state.poolHTML;
+
+    tierlist.querySelectorAll('.tier-row').forEach(row => {
+        const label = row.querySelector('.tier-label');
+        const zone = row.querySelector('.tier-zone');
+        setupZoneDragHandlers(zone, false);
+        addColorPicker(label);
+        makeRowDraggable(label, row);
+        addDeleteButton(label, row);
+        autoShrinkLabel(label);
+    });
+
+    pool.querySelectorAll('.game-card-wrapper').forEach(reattachDragListeners);
+    tierlist.querySelectorAll('.game-card-wrapper').forEach(reattachDragListeners);
+    setupZoneDragHandlers(pool, true);
+    initializeRowDragging();
+}
+
+function undo() {
+    if (undoStack.length === 0) return;
+    const current = captureState();
+    if (current) redoStack.push(current);
+    restoreState(undoStack.pop());
+    updateUndoRedoButtons();
+}
+
+function redo() {
+    if (redoStack.length === 0) return;
+    const current = captureState();
+    if (current) undoStack.push(current);
+    restoreState(redoStack.pop());
+    updateUndoRedoButtons();
+}
+
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
+    if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+    if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+}
+
+function resetToPool() {
+    pushUndo();
+    const pool = document.getElementById('game-pool');
+    document.querySelectorAll('.tier-zone .game-card-wrapper').forEach(wrapper => {
+        pool.appendChild(wrapper);
+    });
+}
+
 const hamMenu = document.querySelector('.ham-menu');
 const offScreenMenu = document.querySelector('.off-screen-menu');
 const searchInput = document.querySelector('.search-input');
@@ -107,6 +209,7 @@ function createDraggableImage(src, alt) {
     deleteBtn.className = 'delete-image-btn';
     deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        pushUndo();
         wrapper.remove();
     });
 
@@ -222,6 +325,7 @@ function handleDrop(zone, e, allowExternalFiles = false) {
     zone.style.outline = '';
 
     if (draggedCard) {
+        pushUndo();
         const afterElement = getDragAfterElement(zone, e.clientX);
         if (afterElement) {
             zone.insertBefore(draggedCard, afterElement);
@@ -388,8 +492,9 @@ function addDeleteButton(label, row) {
     deleteBtn.innerHTML = '&times;';
     deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        pushUndo();
         const pool = document.getElementById('game-pool');
-        const cards = [...row.querySelectorAll('.game-card')];
+        const cards = [...row.querySelectorAll('.game-card-wrapper')];
         cards.forEach(card => pool.appendChild(card));
         row.remove();
     });
@@ -442,6 +547,7 @@ function initializeRowDragging() {
 }
 
 function addNewRow() {
+    pushUndo();
     const tierlist = document.getElementById('tierlist');
     const newRow = document.createElement('div');
     newRow.classList.add('tier-row');
@@ -478,6 +584,7 @@ window.makeRowDraggable = makeRowDraggable;
 window.addDeleteButton = addDeleteButton;
 window.autoShrinkLabel = autoShrinkLabel;
 window.initializeRowDragging = initializeRowDragging;
+window.pushUndo = pushUndo;
 
 // ============================================================================
 // INITIALIZATION
@@ -506,4 +613,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addRowBtn) {
         addRowBtn.addEventListener('click', addNewRow);
     }
+
+    const undoBtn = document.getElementById('undo-btn');
+    if (undoBtn) undoBtn.addEventListener('click', undo);
+
+    const redoBtn = document.getElementById('redo-btn');
+    if (redoBtn) redoBtn.addEventListener('click', redo);
+
+    const resetPoolBtn = document.getElementById('reset-pool-btn');
+    if (resetPoolBtn) resetPoolBtn.addEventListener('click', resetToPool);
+
+    updateUndoRedoButtons();
+
+    // Ctrl+Z / Ctrl+Shift+Z (or Cmd on Mac)
+    document.addEventListener('keydown', (e) => {
+        const mod = e.metaKey || e.ctrlKey;
+        if (mod && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+        } else if (mod && e.key === 'z' && e.shiftKey) {
+            e.preventDefault();
+            redo();
+        } else if (mod && e.key === 'y') {
+            e.preventDefault();
+            redo();
+        }
+    });
 });

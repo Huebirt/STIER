@@ -172,34 +172,60 @@ function generateId(length = 8) {
 // ============================================================================
 
 function generateThumbnail() {
-    // Grab already-loaded <img> elements straight from the DOM
-    const imgEls = [
-        ...document.querySelectorAll('.tier-zone img.game-card'),
-        ...document.querySelectorAll('#game-pool img.game-card')
-    ];
-
     const canvas = document.createElement('canvas');
-    canvas.width = 400;
-    canvas.height = 200;
+    canvas.width = 480;
+    canvas.height = 270;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, 400, 200);
+    ctx.fillRect(0, 0, 480, 270);
 
-    const maxImages = Math.min(imgEls.length, 20);
-    if (maxImages === 0) return canvas.toDataURL('image/webp', 0.6);
+    const rows = document.querySelectorAll('.tier-row');
+    if (rows.length === 0) return canvas.toDataURL('image/webp', 0.6);
 
-    const cols = Math.ceil(Math.sqrt(maxImages));
-    const rows = Math.ceil(maxImages / cols);
-    const cellW = Math.floor(400 / cols);
-    const cellH = Math.floor(200 / rows);
+    const rowH = Math.floor(270 / rows.length);
+    const labelW = 50;
 
-    for (let j = 0; j < maxImages; j++) {
-        const col = j % cols;
-        const row = Math.floor(j / cols);
-        try {
-            ctx.drawImage(imgEls[j], col * cellW, row * cellH, cellW, cellH);
-        } catch (e) { /* skip tainted */ }
-    }
+    rows.forEach((row, i) => {
+        const label = row.querySelector('.tier-label');
+        const y = i * rowH;
+
+        // Draw label background
+        const color = label.style.backgroundColor || window.getComputedStyle(label).backgroundColor;
+        ctx.fillStyle = color || '#666';
+        ctx.fillRect(0, y, labelW, rowH);
+
+        // Draw label text
+        const text = Array.from(label.childNodes)
+            .filter(n => n.nodeType === Node.TEXT_NODE)
+            .map(n => n.textContent).join('').trim();
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text.substring(0, 4), labelW / 2, y + rowH / 2);
+
+        // Draw label right border
+        ctx.fillStyle = '#000';
+        ctx.fillRect(labelW, y, 1, rowH);
+
+        // Draw row bottom border
+        if (i < rows.length - 1) {
+            ctx.fillRect(0, y + rowH - 1, 480, 1);
+        }
+
+        // Draw images in row
+        const imgs = row.querySelectorAll('.tier-zone img.game-card');
+        let x = labelW + 4;
+        const imgH = rowH - 4;
+        const imgW = imgH * 1.2;
+        imgs.forEach(img => {
+            if (x + imgW > 480) return;
+            try {
+                ctx.drawImage(img, x, y + 2, imgW, imgH);
+            } catch (e) { /* skip tainted */ }
+            x += imgW + 3;
+        });
+    });
 
     return canvas.toDataURL('image/webp', 0.6);
 }
