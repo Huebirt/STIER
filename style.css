@@ -198,6 +198,8 @@ nav {
 #download-btn,
 #add-row-btn,
 #save-btn,
+#save-as-btn,
+#publish-btn,
 #my-projects-btn {
     margin: 0;
     font-size: 1rem;
@@ -214,6 +216,8 @@ nav {
 #download-btn:hover,
 #add-row-btn:hover,
 #save-btn:hover,
+#save-as-btn:hover,
+#publish-btn:hover,
 #my-projects-btn:hover {
     background-color: #5a74e0;
 }
@@ -544,34 +548,7 @@ nav {
     padding: 8px 0;
 }
 
-.project-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.project-item:last-child {
-    border-bottom: none;
-}
-
-.project-name {
-    font-family: monospace;
-    font-weight: bold;
-    font-size: 0.95rem;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.project-date {
-    font-family: monospace;
-    font-size: 0.8rem;
-    color: #999;
-    white-space: nowrap;
-}
+/* project-item replaced by project-card */
 
 .project-actions {
     display: flex;
@@ -639,4 +616,152 @@ nav {
     font-weight: bold;
     color: #fff;
     letter-spacing: 0.5px;
+}
+/* ============================================================================
+   PROJECT CARDS (My Projects modal - with thumbnails)
+   ============================================================================ */
+
+.project-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.project-card:last-child {
+    border-bottom: none;
+}
+
+.project-thumb {
+    width: 80px;
+    height: 45px;
+    border-radius: 6px;
+    background-color: #1a1a2e;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    border: 1px solid #333;
+}
+
+.project-preview-chips {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+    max-width: 120px;
+    overflow: hidden;
+}
+
+.preview-chip {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.project-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.project-meta {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 2px;
+}
+
+/* ============================================================================
+   HOME PAGE GALLERY
+   ============================================================================ */
+
+.gallery-section {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.gallery-section h2 {
+    font-family: monospace;
+    font-size: 1.4rem;
+    color: #00183b;
+    padding: 20px 0 8px 0;
+    margin: 0;
+}
+
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    padding-bottom: 40px;
+}
+
+.gallery-loading,
+.gallery-empty {
+    font-family: monospace;
+    font-size: 0.95rem;
+    color: #999;
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px 0;
+}
+
+.gallery-card {
+    background: #1a1a2e;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border: 2px solid transparent;
+}
+
+.gallery-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    border-color: #6f89ff;
+}
+
+.gallery-thumb {
+    width: 100%;
+    height: 120px;
+    background-color: #0d0d1a;
+    background-size: cover;
+    background-position: center;
+}
+
+.gallery-chips {
+    display: flex;
+    gap: 4px;
+    padding: 8px 10px 4px 10px;
+    overflow: hidden;
+    min-height: 36px;
+}
+
+.gallery-chip {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.gallery-info {
+    padding: 6px 12px 12px 12px;
+}
+
+.gallery-title {
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 1rem;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gallery-author {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #6f89ff;
+    margin-top: 2px;
 }

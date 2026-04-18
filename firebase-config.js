@@ -44,7 +44,6 @@ async function logout() {
 }
 
 function updateAuthUI(user) {
-    // Update all login buttons (present on every page)
     document.querySelectorAll('.login-btn').forEach(btn => {
         if (user) {
             btn.textContent = 'Logout';
@@ -55,7 +54,6 @@ function updateAuthUI(user) {
         }
     });
 
-    // Update user display in menu
     document.querySelectorAll('.user-display').forEach(el => {
         if (user) {
             el.textContent = user.displayName || user.email;
@@ -66,17 +64,13 @@ function updateAuthUI(user) {
         }
     });
 
-    // Update save button visibility
     const saveBtn = document.getElementById('save-btn');
-    if (saveBtn) {
-        saveBtn.textContent = user ? 'Save' : 'Login to Save';
-    }
+    if (saveBtn) saveBtn.textContent = user ? 'Save' : 'Login to Save';
 
-    // Update my projects button
-    const myProjectsBtn = document.getElementById('my-projects-btn');
-    if (myProjectsBtn) {
-        myProjectsBtn.style.display = user ? '' : 'none';
-    }
+    ['save-as-btn', 'publish-btn', 'my-projects-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.display = user ? '' : 'none';
+    });
 }
 
 // ============================================================================
@@ -174,6 +168,32 @@ function generateId(length = 8) {
 }
 
 // ============================================================================
+// GENERATE THUMBNAIL (canvas snapshot of tier list)
+// ============================================================================
+
+function generateThumbnail(data) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, 400, 200);
+
+    const rowH = Math.floor(200 / Math.max(data.rows.length, 1));
+    data.rows.forEach((row, i) => {
+        ctx.fillStyle = row.color || '#666';
+        ctx.fillRect(0, i * rowH, 50, rowH);
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(row.label.substring(0, 3), 25, i * rowH + rowH / 2);
+    });
+
+    return canvas.toDataURL('image/webp', 0.6);
+}
+
+// ============================================================================
 // UPLOAD IMAGES TO FIREBASE STORAGE
 // ============================================================================
 
@@ -182,7 +202,6 @@ async function uploadBase64Images(data, tierlistId, onProgress) {
     let completed = 0;
 
     function processImage(imgObj, totalCount) {
-        // Skip if already a URL (Steam images, previously uploaded)
         if (!imgObj.src.startsWith('data:')) {
             completed++;
             if (onProgress) onProgress(completed, totalCount);
@@ -200,10 +219,7 @@ async function uploadBase64Images(data, tierlistId, onProgress) {
             });
     }
 
-    // Collect ALL image upload promises at once
     const allPromises = [];
-
-    // Count total images
     let totalCount = 0;
     data.rows.forEach(row => { totalCount += row.images.length; });
     totalCount += data.poolImages.length;
@@ -220,14 +236,87 @@ async function uploadBase64Images(data, tierlistId, onProgress) {
         allPromises.push(p);
     });
 
-    // Upload everything in parallel
     await Promise.all(allPromises);
-
     return data;
 }
 
+async function uploadThumbnail(tierlistId, base64) {
+    if (!base64.startsWith('data:')) return base64;
+    const path = `thumbnails/${tierlistId}.webp`;
+    const storageRef = ref(storage, path);
+    await uploadString(storageRef, base64, 'data_url');
+    return getDownloadURL(storageRef);
+}
+
 // ============================================================================
-// SAVE TO FIREBASE (requires login)
+// PROGRESS BAR HELPER
+// ============================================================================
+
+function getProgressHelpers() {
+    const el = document.getElementById('save-progress');
+    const bar = el?.querySelector('.save-progress-bar');
+    const text = el?.querySelector('.save-progress-text');
+    return {
+        show(pct, msg) {
+            if (!el) return;
+            el.style.display = '';
+            bar.style.width = pct + '%';
+            text.textContent = msg;
+        },
+        hide() {
+            if (el) el.style.display = 'none';
+        }
+    };
+}
+
+// ============================================================================
+// CORE SAVE (shared by Save, Save As, Publish)
+// ============================================================================
+
+async function coreSave(id, name, isNew) {
+    const user = auth.currentUser;
+    const progress = getProgressHelpers();
+
+    progress.show(5, 'Preparing...');
+    let data = serializeTierlist();
+
+    data = await uploadBase64Images(data, id, (done, total) => {
+        const pct = Math.round(10 + (done / Math.max(total, 1)) * 80);
+        progress.show(pct, `Uploading images ${done}/${total}`);
+    });
+
+    progress.show(92, 'Generating thumbnail...');
+    const thumbBase64 = generateThumbnail(data);
+    const thumbnailUrl = await uploadThumbnail(id, thumbBase64);
+
+    progress.show(95, 'Saving to database...');
+
+    const existingDoc = !isNew ? await getDoc(doc(db, 'tierlists', id)) : null;
+    const existingData = existingDoc?.exists() ? existingDoc.data() : {};
+
+    await setDoc(doc(db, 'tierlists', id), {
+        data: data,
+        name: name,
+        uid: user.uid,
+        authorName: user.displayName || user.email || 'Anonymous',
+        thumbnail: thumbnailUrl,
+        published: existingData.published || false,
+        forkedFrom: window.currentTierlistForkedFrom || existingData.forkedFrom || null,
+        createdAt: isNew ? new Date().toISOString() : (existingData.createdAt || new Date().toISOString()),
+        updatedAt: new Date().toISOString()
+    });
+
+    window.currentTierlistId = id;
+    window.currentTierlistName = name;
+    window.currentTierlistCreatedAt = existingData.createdAt || new Date().toISOString();
+    window.currentTierlistForkedFrom = null;
+
+    progress.show(100, 'Saved!');
+    return id;
+}
+
+// ============================================================================
+// SAVE (overwrite current)
 // ============================================================================
 
 async function saveTierlist() {
@@ -241,17 +330,7 @@ async function saveTierlist() {
     const originalText = saveBtn.textContent;
     saveBtn.textContent = 'Saving...';
     saveBtn.disabled = true;
-
-    const progressEl = document.getElementById('save-progress');
-    const progressBar = progressEl?.querySelector('.save-progress-bar');
-    const progressText = progressEl?.querySelector('.save-progress-text');
-
-    function showProgress(pct, text) {
-        if (!progressEl) return;
-        progressEl.style.display = '';
-        progressBar.style.width = pct + '%';
-        progressText.textContent = text;
-    }
+    const progress = getProgressHelpers();
 
     try {
         const id = window.currentTierlistId || generateId();
@@ -262,43 +341,120 @@ async function saveTierlist() {
             name = prompt('Name your tier list:', 'My Tier List') || 'My Tier List';
         }
 
-        showProgress(5, 'Preparing...');
-        let data = serializeTierlist();
+        await coreSave(id, name, isNew);
 
-        // Upload any base64 images to Storage, replace with URLs
-        data = await uploadBase64Images(data, id, (done, total) => {
-            const pct = Math.round(10 + (done / Math.max(total, 1)) * 80);
-            showProgress(pct, `Uploading images ${done}/${total}`);
-        });
-
-        showProgress(92, 'Saving to database...');
-
-        await setDoc(doc(db, 'tierlists', id), {
-            data: data,
-            name: name,
-            uid: user.uid,
-            createdAt: isNew ? new Date().toISOString() : (window.currentTierlistCreatedAt || new Date().toISOString()),
-            updatedAt: new Date().toISOString()
-        });
-
-        window.currentTierlistId = id;
-        window.currentTierlistName = name;
-
-        showProgress(100, 'Saved!');
         saveBtn.textContent = 'Saved!';
         setTimeout(() => {
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;
-            if (progressEl) progressEl.style.display = 'none';
+            progress.hide();
         }, 2000);
 
     } catch (err) {
         console.error('Error saving tier list:', err);
         saveBtn.textContent = 'Error!';
-        if (progressEl) progressEl.style.display = 'none';
+        progress.hide();
         setTimeout(() => {
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;
+        }, 2000);
+    }
+}
+
+// ============================================================================
+// SAVE AS (new copy)
+// ============================================================================
+
+async function saveAsTierlist() {
+    const user = auth.currentUser;
+    if (!user) {
+        await loginWithGoogle();
+        if (!auth.currentUser) return;
+    }
+
+    const name = prompt('Save as new name:', (window.currentTierlistName || 'My Tier List') + ' (copy)');
+    if (!name) return;
+
+    const saveAsBtn = document.getElementById('save-as-btn');
+    const originalText = saveAsBtn.textContent;
+    saveAsBtn.textContent = 'Saving...';
+    saveAsBtn.disabled = true;
+    const progress = getProgressHelpers();
+
+    try {
+        const newId = generateId();
+        await coreSave(newId, name, true);
+
+        history.pushState(null, '', `tiermaker.html?id=${newId}`);
+
+        saveAsBtn.textContent = 'Saved!';
+        setTimeout(() => {
+            saveAsBtn.textContent = originalText;
+            saveAsBtn.disabled = false;
+            progress.hide();
+        }, 2000);
+
+    } catch (err) {
+        console.error('Error saving as:', err);
+        saveAsBtn.textContent = 'Error!';
+        progress.hide();
+        setTimeout(() => {
+            saveAsBtn.textContent = originalText;
+            saveAsBtn.disabled = false;
+        }, 2000);
+    }
+}
+
+// ============================================================================
+// PUBLISH (make public for home page gallery)
+// ============================================================================
+
+async function publishTierlist() {
+    const user = auth.currentUser;
+    if (!user) {
+        await loginWithGoogle();
+        if (!auth.currentUser) return;
+    }
+
+    if (!window.currentTierlistId) {
+        await saveTierlist();
+        if (!window.currentTierlistId) return;
+    }
+
+    const publishBtn = document.getElementById('publish-btn');
+    const originalText = publishBtn.textContent;
+
+    try {
+        const snapshot = await getDoc(doc(db, 'tierlists', window.currentTierlistId));
+        const isPublished = snapshot.exists() && snapshot.data().published;
+
+        if (isPublished) {
+            if (!confirm('This tier list is already published. Unpublish it?')) return;
+            await setDoc(doc(db, 'tierlists', window.currentTierlistId), { published: false }, { merge: true });
+            publishBtn.textContent = 'Publish';
+            return;
+        }
+
+        if (!confirm('Publish this tier list? Other users will see it on the home page and can fork their own version.')) return;
+
+        publishBtn.textContent = 'Publishing...';
+        publishBtn.disabled = true;
+
+        await coreSave(window.currentTierlistId, window.currentTierlistName, false);
+        await setDoc(doc(db, 'tierlists', window.currentTierlistId), { published: true }, { merge: true });
+
+        publishBtn.textContent = 'Published!';
+        setTimeout(() => {
+            publishBtn.textContent = 'Unpublish';
+            publishBtn.disabled = false;
+        }, 2000);
+
+    } catch (err) {
+        console.error('Error publishing:', err);
+        publishBtn.textContent = 'Error!';
+        setTimeout(() => {
+            publishBtn.textContent = originalText;
+            publishBtn.disabled = false;
         }, 2000);
     }
 }
@@ -310,10 +466,9 @@ async function saveTierlist() {
 async function shareTierlist() {
     const shareBtn = document.getElementById('share-btn');
 
-    // Save first if not saved yet
     if (!window.currentTierlistId) {
         await saveTierlist();
-        if (!window.currentTierlistId) return; // save failed or cancelled
+        if (!window.currentTierlistId) return;
     }
 
     const shareUrl = `${window.location.origin}${window.location.pathname}?id=${window.currentTierlistId}`;
@@ -327,7 +482,6 @@ async function shareTierlist() {
             shareBtn.classList.remove('shared');
         }, 2000);
     } catch (err) {
-        // Fallback: prompt with the URL
         prompt('Copy this link:', shareUrl);
     }
 }
@@ -345,10 +499,26 @@ async function loadTierlistFromUrl() {
         const snapshot = await getDoc(doc(db, 'tierlists', id));
         if (snapshot.exists()) {
             const docData = snapshot.data();
-            window.currentTierlistId = id;
-            window.currentTierlistName = docData.name || '';
-            window.currentTierlistCreatedAt = docData.createdAt;
+            const user = auth.currentUser;
+            const isOwner = user && docData.uid === user.uid;
+
+            if (isOwner) {
+                window.currentTierlistId = id;
+                window.currentTierlistName = docData.name || '';
+                window.currentTierlistCreatedAt = docData.createdAt;
+            } else {
+                // Viewing someone else's — Save will create a fork
+                window.currentTierlistId = null;
+                window.currentTierlistName = docData.name || '';
+                window.currentTierlistForkedFrom = id;
+            }
+
             deserializeTierlist(docData.data);
+
+            const publishBtn = document.getElementById('publish-btn');
+            if (publishBtn && isOwner) {
+                publishBtn.textContent = docData.published ? 'Unpublish' : 'Publish';
+            }
         } else {
             console.warn('Tier list not found:', id);
         }
@@ -358,14 +528,13 @@ async function loadTierlistFromUrl() {
 }
 
 // ============================================================================
-// MY PROJECTS MODAL
+// MY PROJECTS MODAL (with thumbnails & preview)
 // ============================================================================
 
 async function showMyProjects() {
     const user = auth.currentUser;
     if (!user) return;
 
-    // Remove existing modal
     const existing = document.getElementById('projects-modal');
     if (existing) { existing.remove(); return; }
 
@@ -385,15 +554,11 @@ async function showMyProjects() {
     `;
     document.body.appendChild(modal);
 
-    // Close handlers
     modal.querySelector('.projects-modal-backdrop').addEventListener('click', () => modal.remove());
     modal.querySelector('.projects-modal-close').addEventListener('click', () => modal.remove());
 
     try {
-        const q = query(
-            collection(db, 'tierlists'),
-            where('uid', '==', user.uid)
-        );
+        const q = query(collection(db, 'tierlists'), where('uid', '==', user.uid));
         const snapshot = await getDocs(q);
         const body = modal.querySelector('.projects-modal-body');
 
@@ -402,7 +567,6 @@ async function showMyProjects() {
             return;
         }
 
-        // Sort by updatedAt client-side
         const docs = [];
         snapshot.forEach(docSnap => docs.push(docSnap));
         docs.sort((a, b) => (b.data().updatedAt || '').localeCompare(a.data().updatedAt || ''));
@@ -410,16 +574,41 @@ async function showMyProjects() {
         body.innerHTML = '';
         docs.forEach(docSnap => {
             const data = docSnap.data();
-            const item = document.createElement('div');
-            item.className = 'project-item';
+            const card = document.createElement('div');
+            card.className = 'project-card';
 
-            const name = document.createElement('span');
+            const thumb = document.createElement('div');
+            thumb.className = 'project-thumb';
+            if (data.thumbnail) {
+                thumb.style.backgroundImage = `url(${data.thumbnail})`;
+            }
+
+            const previewChips = document.createElement('div');
+            previewChips.className = 'project-preview-chips';
+            const allImages = [
+                ...(data.data?.rows || []).flatMap(r => r.images || []),
+                ...(data.data?.poolImages || [])
+            ];
+            allImages.slice(0, 6).forEach(img => {
+                const chip = document.createElement('img');
+                chip.src = img.src;
+                chip.alt = img.alt || '';
+                chip.className = 'preview-chip';
+                previewChips.appendChild(chip);
+            });
+
+            const info = document.createElement('div');
+            info.className = 'project-info';
+
+            const name = document.createElement('div');
             name.className = 'project-name';
             name.textContent = data.name || 'Untitled';
 
-            const date = document.createElement('span');
-            date.className = 'project-date';
-            date.textContent = new Date(data.updatedAt).toLocaleDateString();
+            const meta = document.createElement('div');
+            meta.className = 'project-meta';
+            const dateStr = new Date(data.updatedAt).toLocaleDateString();
+            const status = data.published ? ' · Published' : '';
+            meta.textContent = dateStr + status;
 
             const actions = document.createElement('div');
             actions.className = 'project-actions';
@@ -437,7 +626,7 @@ async function showMyProjects() {
             deleteBtn.addEventListener('click', async () => {
                 if (confirm(`Delete "${data.name || 'Untitled'}"?`)) {
                     await deleteDoc(doc(db, 'tierlists', docSnap.id));
-                    item.remove();
+                    card.remove();
                     if (body.children.length === 0) {
                         body.innerHTML = '<p>No saved tier lists yet.</p>';
                     }
@@ -445,13 +634,91 @@ async function showMyProjects() {
             });
 
             actions.append(openBtn, deleteBtn);
-            item.append(name, date, actions);
-            body.appendChild(item);
+            info.append(name, meta);
+            card.append(thumb, previewChips, info, actions);
+            body.appendChild(card);
         });
 
     } catch (err) {
         console.error('Error loading projects:', err);
         modal.querySelector('.projects-modal-body').innerHTML = '<p>Error loading projects.</p>';
+    }
+}
+
+// ============================================================================
+// HOME PAGE GALLERY (published tier lists)
+// ============================================================================
+
+async function loadGallery() {
+    const gallery = document.getElementById('gallery');
+    if (!gallery) return;
+
+    try {
+        const q = query(
+            collection(db, 'tierlists'),
+            where('published', '==', true)
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            gallery.innerHTML = '<p class="gallery-empty">No published tier lists yet. Be the first to publish one!</p>';
+            return;
+        }
+
+        const docs = [];
+        snapshot.forEach(docSnap => docs.push(docSnap));
+        docs.sort((a, b) => (b.data().updatedAt || '').localeCompare(a.data().updatedAt || ''));
+
+        gallery.innerHTML = '';
+        docs.forEach(docSnap => {
+            const data = docSnap.data();
+            const card = document.createElement('div');
+            card.className = 'gallery-card';
+
+            const thumb = document.createElement('div');
+            thumb.className = 'gallery-thumb';
+            if (data.thumbnail) {
+                thumb.style.backgroundImage = `url(${data.thumbnail})`;
+            }
+
+            const chips = document.createElement('div');
+            chips.className = 'gallery-chips';
+            const allImages = [
+                ...(data.data?.rows || []).flatMap(r => r.images || []),
+                ...(data.data?.poolImages || [])
+            ];
+            allImages.slice(0, 8).forEach(img => {
+                const chip = document.createElement('img');
+                chip.src = img.src;
+                chip.alt = img.alt || '';
+                chip.className = 'gallery-chip';
+                chips.appendChild(chip);
+            });
+
+            const info = document.createElement('div');
+            info.className = 'gallery-info';
+
+            const title = document.createElement('div');
+            title.className = 'gallery-title';
+            title.textContent = data.name || 'Untitled';
+
+            const author = document.createElement('div');
+            author.className = 'gallery-author';
+            author.textContent = `by ${data.authorName || 'Anonymous'}`;
+
+            info.append(title, author);
+
+            card.addEventListener('click', () => {
+                window.location.href = `tiermaker.html?id=${docSnap.id}`;
+            });
+
+            card.append(thumb, chips, info);
+            gallery.appendChild(card);
+        });
+
+    } catch (err) {
+        console.error('Error loading gallery:', err);
+        gallery.innerHTML = '<p class="gallery-empty">Could not load published tier lists.</p>';
     }
 }
 
@@ -462,31 +729,48 @@ async function showMyProjects() {
 window.currentTierlistId = null;
 window.currentTierlistName = null;
 window.currentTierlistCreatedAt = null;
+window.currentTierlistForkedFrom = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Auth state listener
     onAuthStateChanged(auth, (user) => {
         updateAuthUI(user);
+        if (user && window.location.pathname.includes('tiermaker')) {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            if (id && !window.currentTierlistId) {
+                getDoc(doc(db, 'tierlists', id)).then(snapshot => {
+                    if (snapshot.exists() && snapshot.data().uid === user.uid) {
+                        window.currentTierlistId = id;
+                        window.currentTierlistName = snapshot.data().name;
+                        window.currentTierlistCreatedAt = snapshot.data().createdAt;
+                        const publishBtn = document.getElementById('publish-btn');
+                        if (publishBtn) publishBtn.textContent = snapshot.data().published ? 'Unpublish' : 'Publish';
+                    }
+                });
+            }
+        }
     });
 
-    // Save button
     const saveBtn = document.getElementById('save-btn');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', saveTierlist);
-    }
+    if (saveBtn) saveBtn.addEventListener('click', saveTierlist);
 
-    // My Projects button
+    const saveAsBtn = document.getElementById('save-as-btn');
+    if (saveAsBtn) saveAsBtn.addEventListener('click', saveAsTierlist);
+
+    const publishBtn = document.getElementById('publish-btn');
+    if (publishBtn) publishBtn.addEventListener('click', publishTierlist);
+
     const myProjectsBtn = document.getElementById('my-projects-btn');
-    if (myProjectsBtn) {
-        myProjectsBtn.addEventListener('click', showMyProjects);
-    }
+    if (myProjectsBtn) myProjectsBtn.addEventListener('click', showMyProjects);
 
-    // Share button
     const shareBtn = document.getElementById('share-btn');
-    if (shareBtn) {
-        shareBtn.addEventListener('click', shareTierlist);
+    if (shareBtn) shareBtn.addEventListener('click', shareTierlist);
+
+    if (window.location.pathname.includes('tiermaker')) {
+        loadTierlistFromUrl();
     }
 
-    // Load shared tier list if ?id= is in URL
-    loadTierlistFromUrl();
+    if (document.getElementById('gallery')) {
+        loadGallery();
+    }
 });
