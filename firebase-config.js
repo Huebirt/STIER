@@ -177,28 +177,51 @@ function generateId(length = 8) {
 // UPLOAD IMAGES TO FIREBASE STORAGE
 // ============================================================================
 
-async function uploadBase64Images(data, tierlistId) {
+async function uploadBase64Images(data, tierlistId, onProgress) {
     let imgIndex = 0;
+    let completed = 0;
 
-    async function processImage(imgObj) {
+    function processImage(imgObj, totalCount) {
         // Skip if already a URL (Steam images, previously uploaded)
-        if (!imgObj.src.startsWith('data:')) return imgObj;
+        if (!imgObj.src.startsWith('data:')) {
+            completed++;
+            if (onProgress) onProgress(completed, totalCount);
+            return Promise.resolve(imgObj);
+        }
 
-        const path = `tierlists/${tierlistId}/${imgIndex++}_${Date.now()}.png`;
+        const path = `tierlists/${tierlistId}/${imgIndex++}_${Date.now()}.webp`;
         const storageRef = ref(storage, path);
-        await uploadString(storageRef, imgObj.src, 'data_url');
-        const url = await getDownloadURL(storageRef);
-        return { src: url, alt: imgObj.alt };
+        return uploadString(storageRef, imgObj.src, 'data_url')
+            .then(() => getDownloadURL(storageRef))
+            .then(url => {
+                completed++;
+                if (onProgress) onProgress(completed, totalCount);
+                return { src: url, alt: imgObj.alt };
+            });
     }
 
-    // Process all rows
-    for (let i = 0; i < data.rows.length; i++) {
-        const row = data.rows[i];
-        row.images = await Promise.all(row.images.map(processImage));
-    }
+    // Collect ALL image upload promises at once
+    const allPromises = [];
 
-    // Process pool
-    data.poolImages = await Promise.all(data.poolImages.map(processImage));
+    // Count total images
+    let totalCount = 0;
+    data.rows.forEach(row => { totalCount += row.images.length; });
+    totalCount += data.poolImages.length;
+
+    data.rows.forEach(row => {
+        row.images.forEach((imgObj, i) => {
+            const p = processImage(imgObj, totalCount).then(result => { row.images[i] = result; });
+            allPromises.push(p);
+        });
+    });
+
+    data.poolImages.forEach((imgObj, i) => {
+        const p = processImage(imgObj, totalCount).then(result => { data.poolImages[i] = result; });
+        allPromises.push(p);
+    });
+
+    // Upload everything in parallel
+    await Promise.all(allPromises);
 
     return data;
 }
@@ -219,6 +242,17 @@ async function saveTierlist() {
     saveBtn.textContent = 'Saving...';
     saveBtn.disabled = true;
 
+    const progressEl = document.getElementById('save-progress');
+    const progressBar = progressEl?.querySelector('.save-progress-bar');
+    const progressText = progressEl?.querySelector('.save-progress-text');
+
+    function showProgress(pct, text) {
+        if (!progressEl) return;
+        progressEl.style.display = '';
+        progressBar.style.width = pct + '%';
+        progressText.textContent = text;
+    }
+
     try {
         const id = window.currentTierlistId || generateId();
         const isNew = !window.currentTierlistId;
@@ -228,10 +262,16 @@ async function saveTierlist() {
             name = prompt('Name your tier list:', 'My Tier List') || 'My Tier List';
         }
 
+        showProgress(5, 'Preparing...');
         let data = serializeTierlist();
 
         // Upload any base64 images to Storage, replace with URLs
-        data = await uploadBase64Images(data, id);
+        data = await uploadBase64Images(data, id, (done, total) => {
+            const pct = Math.round(10 + (done / Math.max(total, 1)) * 80);
+            showProgress(pct, `Uploading images ${done}/${total}`);
+        });
+
+        showProgress(92, 'Saving to database...');
 
         await setDoc(doc(db, 'tierlists', id), {
             data: data,
@@ -244,15 +284,18 @@ async function saveTierlist() {
         window.currentTierlistId = id;
         window.currentTierlistName = name;
 
+        showProgress(100, 'Saved!');
         saveBtn.textContent = 'Saved!';
         setTimeout(() => {
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;
+            if (progressEl) progressEl.style.display = 'none';
         }, 2000);
 
     } catch (err) {
         console.error('Error saving tier list:', err);
         saveBtn.textContent = 'Error!';
+        if (progressEl) progressEl.style.display = 'none';
         setTimeout(() => {
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;

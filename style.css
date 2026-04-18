@@ -606,3 +606,36 @@ nav {
 .project-delete-btn:hover {
     background: #c0392b;
 }
+
+/* ============================================================================
+   SAVE PROGRESS BAR
+   ============================================================================ */
+.save-progress {
+    width: 100%;
+    max-width: 800px;
+    margin: 8px auto;
+    background: #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+    height: 28px;
+    position: relative;
+}
+
+.save-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00183b, #1a5bc4);
+    transition: width 0.3s ease;
+    border-radius: 6px;
+}
+
+.save-progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
