@@ -172,25 +172,60 @@ function generateId(length = 8) {
 // ============================================================================
 
 function generateThumbnail(data) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 400;
-    canvas.height = 200;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, 400, 200);
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 400;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, 400, 200);
 
-    const rowH = Math.floor(200 / Math.max(data.rows.length, 1));
-    data.rows.forEach((row, i) => {
-        ctx.fillStyle = row.color || '#666';
-        ctx.fillRect(0, i * rowH, 50, rowH);
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 14px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(row.label.substring(0, 3), 25, i * rowH + rowH / 2);
+        // Collect all image srcs
+        const allSrcs = [
+            ...data.rows.flatMap(r => r.images.map(img => img.src)),
+            ...data.poolImages.map(img => img.src)
+        ];
+
+        if (allSrcs.length === 0) {
+            resolve(canvas.toDataURL('image/webp', 0.6));
+            return;
+        }
+
+        // Grid layout
+        const cols = Math.ceil(Math.sqrt(allSrcs.length));
+        const rows = Math.ceil(allSrcs.length / cols);
+        const cellW = Math.floor(400 / cols);
+        const cellH = Math.floor(200 / rows);
+        const maxImages = Math.min(allSrcs.length, 20);
+
+        let loaded = 0;
+        const images = [];
+
+        for (let i = 0; i < maxImages; i++) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = img.onerror = () => {
+                images[i] = img;
+                loaded++;
+                if (loaded >= maxImages) {
+                    for (let j = 0; j < maxImages; j++) {
+                        const col = j % cols;
+                        const row = Math.floor(j / cols);
+                        const x = col * cellW;
+                        const y = row * cellH;
+                        try {
+                            ctx.drawImage(images[j], x, y, cellW, cellH);
+                        } catch (e) { /* skip broken */ }
+                    }
+                    resolve(canvas.toDataURL('image/webp', 0.6));
+                }
+            };
+            img.src = allSrcs[i];
+        }
+
+        // Timeout fallback
+        setTimeout(() => resolve(canvas.toDataURL('image/webp', 0.6)), 5000);
     });
-
-    return canvas.toDataURL('image/webp', 0.6);
 }
 
 // ============================================================================
@@ -286,7 +321,7 @@ async function coreSave(id, name, isNew) {
     });
 
     progress.show(92, 'Generating thumbnail...');
-    const thumbBase64 = generateThumbnail(data);
+    const thumbBase64 = await generateThumbnail(data);
     const thumbnailUrl = await uploadThumbnail(id, thumbBase64);
 
     progress.show(95, 'Saving to database...');
@@ -583,20 +618,6 @@ async function showMyProjects() {
                 thumb.style.backgroundImage = `url(${data.thumbnail})`;
             }
 
-            const previewChips = document.createElement('div');
-            previewChips.className = 'project-preview-chips';
-            const allImages = [
-                ...(data.data?.rows || []).flatMap(r => r.images || []),
-                ...(data.data?.poolImages || [])
-            ];
-            allImages.slice(0, 6).forEach(img => {
-                const chip = document.createElement('img');
-                chip.src = img.src;
-                chip.alt = img.alt || '';
-                chip.className = 'preview-chip';
-                previewChips.appendChild(chip);
-            });
-
             const info = document.createElement('div');
             info.className = 'project-info';
 
@@ -619,6 +640,8 @@ async function showMyProjects() {
             openBtn.addEventListener('click', () => {
                 window.location.href = `tiermaker.html?id=${docSnap.id}`;
             });
+
+            actions.appendChild(openBtn);
 
             if (data.published) {
                 const unpubBtn = document.createElement('button');
@@ -649,9 +672,9 @@ async function showMyProjects() {
                 }
             });
 
-            actions.append(openBtn, deleteBtn);
+            actions.appendChild(deleteBtn);
             info.append(name, meta);
-            card.append(thumb, previewChips, info, actions);
+            card.append(thumb, info, actions);
             body.appendChild(card);
         });
 
@@ -697,20 +720,6 @@ async function loadGallery() {
                 thumb.style.backgroundImage = `url(${data.thumbnail})`;
             }
 
-            const chips = document.createElement('div');
-            chips.className = 'gallery-chips';
-            const allImages = [
-                ...(data.data?.rows || []).flatMap(r => r.images || []),
-                ...(data.data?.poolImages || [])
-            ];
-            allImages.slice(0, 8).forEach(img => {
-                const chip = document.createElement('img');
-                chip.src = img.src;
-                chip.alt = img.alt || '';
-                chip.className = 'gallery-chip';
-                chips.appendChild(chip);
-            });
-
             const info = document.createElement('div');
             info.className = 'gallery-info';
 
@@ -728,7 +737,7 @@ async function loadGallery() {
                 window.location.href = `tiermaker.html?id=${docSnap.id}`;
             });
 
-            card.append(thumb, chips, info);
+            card.append(thumb, info);
             gallery.appendChild(card);
         });
 
