@@ -171,69 +171,37 @@ function generateId(length = 8) {
 // GENERATE THUMBNAIL (canvas snapshot of tier list)
 // ============================================================================
 
-function generateThumbnail(data) {
-    return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 400;
-        canvas.height = 200;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, 400, 200);
+function generateThumbnail() {
+    // Grab already-loaded <img> elements straight from the DOM
+    const imgEls = [
+        ...document.querySelectorAll('.tier-zone img.game-card'),
+        ...document.querySelectorAll('#game-pool img.game-card')
+    ];
 
-        // Collect all image srcs
-        const allSrcs = [
-            ...data.rows.flatMap(r => r.images.map(img => img.src)),
-            ...data.poolImages.map(img => img.src)
-        ];
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, 400, 200);
 
-        if (allSrcs.length === 0) {
-            resolve(canvas.toDataURL('image/webp', 0.6));
-            return;
-        }
+    const maxImages = Math.min(imgEls.length, 20);
+    if (maxImages === 0) return canvas.toDataURL('image/webp', 0.6);
 
-        // Limit to 20 images, then calculate grid from that count
-        const maxImages = Math.min(allSrcs.length, 20);
-        const srcsToUse = allSrcs.slice(0, maxImages);
-        const cols = Math.ceil(Math.sqrt(maxImages));
-        const rows = Math.ceil(maxImages / cols);
-        const cellW = Math.floor(400 / cols);
-        const cellH = Math.floor(200 / rows);
+    const cols = Math.ceil(Math.sqrt(maxImages));
+    const rows = Math.ceil(maxImages / cols);
+    const cellW = Math.floor(400 / cols);
+    const cellH = Math.floor(200 / rows);
 
-        let loaded = 0;
-        let resolved = false;
-        const images = [];
+    for (let j = 0; j < maxImages; j++) {
+        const col = j % cols;
+        const row = Math.floor(j / cols);
+        try {
+            ctx.drawImage(imgEls[j], col * cellW, row * cellH, cellW, cellH);
+        } catch (e) { /* skip tainted */ }
+    }
 
-        function finalize() {
-            if (resolved) return;
-            resolved = true;
-            for (let j = 0; j < maxImages; j++) {
-                if (!images[j] || !images[j].naturalWidth) continue;
-                const col = j % cols;
-                const row = Math.floor(j / cols);
-                try {
-                    ctx.drawImage(images[j], col * cellW, row * cellH, cellW, cellH);
-                } catch (e) { /* skip tainted/broken */ }
-            }
-            resolve(canvas.toDataURL('image/webp', 0.6));
-        }
-
-        for (let i = 0; i < maxImages; i++) {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-                images[i] = img;
-                if (++loaded >= maxImages) finalize();
-            };
-            img.onerror = () => {
-                images[i] = null;
-                if (++loaded >= maxImages) finalize();
-            };
-            img.src = srcsToUse[i];
-        }
-
-        // Timeout fallback — resolve with whatever loaded so far
-        setTimeout(finalize, 5000);
-    });
+    return canvas.toDataURL('image/webp', 0.6);
 }
 
 // ============================================================================
@@ -329,7 +297,7 @@ async function coreSave(id, name, isNew) {
     });
 
     progress.show(92, 'Generating thumbnail...');
-    const thumbBase64 = await generateThumbnail(data);
+    const thumbBase64 = generateThumbnail();
     const thumbnailUrl = await uploadThumbnail(id, thumbBase64);
 
     progress.show(95, 'Saving to database...');
@@ -415,37 +383,106 @@ async function saveAsTierlist() {
         if (!auth.currentUser) return;
     }
 
-    const name = prompt('Save as new name:', (window.currentTierlistName || 'My Tier List') + ' (copy)');
-    if (!name) return;
+    // Fetch user's existing projects
+    const q = query(collection(db, 'tierlists'), where('uid', '==', user.uid));
+    const snapshot = await getDocs(q);
 
-    const saveAsBtn = document.getElementById('save-as-btn');
-    const originalText = saveAsBtn.textContent;
-    saveAsBtn.textContent = 'Saving...';
-    saveAsBtn.disabled = true;
-    const progress = getProgressHelpers();
+    const existingModal = document.getElementById('saveas-modal');
+    if (existingModal) existingModal.remove();
 
-    try {
-        const newId = generateId();
-        await coreSave(newId, name, true);
+    const modal = document.createElement('div');
+    modal.id = 'saveas-modal';
+    modal.innerHTML = `
+        <div class="projects-modal-backdrop"></div>
+        <div class="projects-modal-content">
+            <div class="projects-modal-header">
+                <h2>Save As</h2>
+                <button class="projects-modal-close">&times;</button>
+            </div>
+            <div class="projects-modal-body"></div>
+        </div>
+    `;
+    document.body.appendChild(modal);
 
-        history.pushState(null, '', `tiermaker.html?id=${newId}`);
+    modal.querySelector('.projects-modal-backdrop').addEventListener('click', () => modal.remove());
+    modal.querySelector('.projects-modal-close').addEventListener('click', () => modal.remove());
 
-        saveAsBtn.textContent = 'Saved!';
-        setTimeout(() => {
-            saveAsBtn.textContent = originalText;
-            saveAsBtn.disabled = false;
+    const body = modal.querySelector('.projects-modal-body');
+
+    // "Save as New" option
+    const newCard = document.createElement('div');
+    newCard.className = 'project-card';
+    newCard.style.cursor = 'pointer';
+    newCard.innerHTML = `
+        <div class="project-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#6f89ff;">+</div>
+        <div class="project-info">
+            <div class="project-name" style="color:#6f89ff;font-weight:bold;">Save as New</div>
+            <div class="project-meta">Create a new tier list</div>
+        </div>
+    `;
+    newCard.addEventListener('click', async () => {
+        const name = prompt('Name your new tier list:', (window.currentTierlistName || 'My Tier List') + ' (copy)');
+        if (!name) return;
+        modal.remove();
+        const progress = getProgressHelpers();
+        try {
+            const newId = generateId();
+            await coreSave(newId, name, true);
+            history.pushState(null, '', `tiermaker.html?id=${newId}`);
+            setTimeout(() => progress.hide(), 2000);
+        } catch (err) {
+            console.error('Error saving as new:', err);
             progress.hide();
-        }, 2000);
+        }
+    });
+    body.appendChild(newCard);
 
-    } catch (err) {
-        console.error('Error saving as:', err);
-        saveAsBtn.textContent = 'Error!';
-        progress.hide();
-        setTimeout(() => {
-            saveAsBtn.textContent = originalText;
-            saveAsBtn.disabled = false;
-        }, 2000);
-    }
+    // Existing projects to overwrite
+    const docs = [];
+    snapshot.forEach(docSnap => docs.push(docSnap));
+    docs.sort((a, b) => (b.data().updatedAt || '').localeCompare(a.data().updatedAt || ''));
+
+    docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const card = document.createElement('div');
+        card.className = 'project-card';
+        card.style.cursor = 'pointer';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'project-thumb';
+        if (data.thumbnail) {
+            thumb.style.backgroundImage = `url(${data.thumbnail})`;
+        }
+
+        const info = document.createElement('div');
+        info.className = 'project-info';
+
+        const name = document.createElement('div');
+        name.className = 'project-name';
+        name.textContent = data.name || 'Untitled';
+
+        const meta = document.createElement('div');
+        meta.className = 'project-meta';
+        meta.textContent = new Date(data.updatedAt).toLocaleDateString() + (data.published ? ' · Published' : '');
+
+        info.append(name, meta);
+        card.append(thumb, info);
+        body.appendChild(card);
+
+        card.addEventListener('click', async () => {
+            if (!confirm(`Overwrite "${data.name || 'Untitled'}" with the current tier list?`)) return;
+            modal.remove();
+            const progress = getProgressHelpers();
+            try {
+                await coreSave(docSnap.id, data.name, false);
+                history.pushState(null, '', `tiermaker.html?id=${docSnap.id}`);
+                setTimeout(() => progress.hide(), 2000);
+            } catch (err) {
+                console.error('Error overwriting:', err);
+                progress.hide();
+            }
+        });
+    });
 }
 
 // ============================================================================
