@@ -66,6 +66,8 @@ function restoreState(state) {
     tierlist.querySelectorAll('.tier-row').forEach(row => {
         const label = row.querySelector('.tier-label');
         const zone = row.querySelector('.tier-zone');
+        // Remove old delete buttons (they lost their listeners) and re-add
+        label.querySelectorAll('.delete-tier-btn').forEach(b => b.remove());
         setupZoneDragHandlers(zone, false);
         addColorPicker(label);
         makeRowDraggable(label, row);
@@ -161,9 +163,14 @@ function displaySearchResults(games) {
         item.appendChild(img);
         item.appendChild(name);
         item.addEventListener('click', () => {
-            addGameToPool(game);
-            searchDropdown.innerHTML = '';
-            searchInput.value = '';
+            if (gamePool) {
+                addGameToPool(game);
+                searchDropdown.innerHTML = '';
+                searchInput.value = '';
+            } else {
+                // On home page, navigate to tiermaker
+                window.location.href = `tiermaker.html`;
+            }
         });
         searchDropdown.appendChild(item);
     });
@@ -355,6 +362,9 @@ function handleDrop(zone, e, allowExternalFiles = false) {
 }
 
 function setupZoneDragHandlers(zone, allowExternalFiles = false) {
+    if (zone._hasDragHandlers) return;
+    zone._hasDragHandlers = true;
+
     zone.addEventListener('dragover', (e) => {
         e.preventDefault();
         zone.style.outline = '2px dashed #6f89ff';
@@ -507,6 +517,10 @@ const PRESET_COLORS = [
 ];
 
 function addColorPicker(label) {
+    // Prevent duplicate listeners
+    if (label._hasColorPicker) return;
+    label._hasColorPicker = true;
+
     label.addEventListener('click', () => {
         if (window.getSelection().toString()) return;
 
@@ -549,6 +563,9 @@ function addColorPicker(label) {
 }
 
 function autoShrinkLabel(label) {
+    if (label._hasAutoShrink) return;
+    label._hasAutoShrink = true;
+
     label.addEventListener('input', () => {
         // Get only the text content, excluding the delete button
         const text = Array.from(label.childNodes)
@@ -586,6 +603,9 @@ function addDeleteButton(label, row) {
 }
 
 function makeRowDraggable(label, row) {
+    if (label._hasRowDrag) return;
+    label._hasRowDrag = true;
+
     label.addEventListener('mousedown', () => {
         row.draggable = true;
     });
@@ -609,7 +629,8 @@ function makeRowDraggable(label, row) {
 
 function initializeRowDragging() {
     const tierlist = document.getElementById('tierlist');
-    if (!tierlist) return;
+    if (!tierlist || tierlist._hasRowDragging) return;
+    tierlist._hasRowDragging = true;
 
     tierlist.addEventListener('dragover', (e) => {
         e.preventDefault();
