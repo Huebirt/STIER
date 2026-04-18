@@ -378,22 +378,47 @@ function initializeDragDrop() {
 
 function downloadTierlist() {
     const element = document.getElementById('tierlist');
-    // Wait for all images in the tierlist to load
+
+    const filename = prompt('Save as:', window.currentTierlistName || 'tierlist');
+    if (!filename) return;
+
+    // Convert all cross-origin images to inline data URLs so html2canvas can render them
     const images = element.querySelectorAll('img');
-    const promises = Array.from(images).map(img => {
-        if (img.complete) return Promise.resolve();
+    const originalSrcs = [];
+
+    const convertPromises = Array.from(images).map((img, i) => {
+        originalSrcs[i] = img.src;
+        if (img.src.startsWith('data:')) return Promise.resolve();
         return new Promise(resolve => {
-            img.onload = img.onerror = resolve;
+            const temp = new Image();
+            temp.crossOrigin = 'anonymous';
+            temp.onload = () => {
+                try {
+                    const c = document.createElement('canvas');
+                    c.width = temp.naturalWidth;
+                    c.height = temp.naturalHeight;
+                    c.getContext('2d').drawImage(temp, 0, 0);
+                    img.src = c.toDataURL('image/png');
+                } catch (e) { /* keep original if tainted */ }
+                resolve();
+            };
+            temp.onerror = () => resolve();
+            temp.src = img.src;
         });
     });
 
-    Promise.all(promises).then(() => {
-        html2canvas(element, { useCORS: true }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'tierlist.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        });
+    Promise.all(convertPromises).then(() => {
+        return html2canvas(element, { allowTaint: true, logging: false });
+    }).then(canvas => {
+        // Restore original srcs
+        images.forEach((img, i) => { img.src = originalSrcs[i]; });
+
+        const link = document.createElement('a');
+        link.download = filename.endsWith('.png') ? filename : filename + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }).catch(() => {
+        images.forEach((img, i) => { img.src = originalSrcs[i]; });
     });
 }
 
