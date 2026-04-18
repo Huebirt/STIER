@@ -390,7 +390,11 @@ async function downloadTierlist() {
         originalSrcs[i] = img.src;
         if (img.src.startsWith('data:')) return;
         try {
-            const resp = await fetch(img.src);
+            // Use CORS proxy for cross-origin images
+            const url = img.src.includes(window.location.host)
+                ? img.src
+                : `https://corsproxy.io/?url=${encodeURIComponent(img.src)}`;
+            const resp = await fetch(url);
             const blob = await resp.blob();
             const dataUrl = await new Promise(resolve => {
                 const reader = new FileReader();
