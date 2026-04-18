@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://stier-d1e56.web.app", "https://stier-d1e56.firebaseapp.com", "https://sti3r.com", "http://localhost:5000", "http://127.0.0.1:5000"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

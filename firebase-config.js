@@ -373,22 +373,28 @@ async function saveTierlist() {
         const id = window.currentTierlistId || generateId();
         const isNew = !window.currentTierlistId;
 
+        console.log('[Save] id:', id, 'isNew:', isNew, 'forkedFrom:', window.currentTierlistForkedFrom);
+
         let name = window.currentTierlistName || '';
         if (isNew) {
-            name = prompt('Name your tier list:', 'My Tier List') || 'My Tier List';
+            name = prompt('Name your tier list:', window.currentTierlistName || 'My Tier List') || 'My Tier List';
         }
 
         await coreSave(id, name, isNew);
 
+        // Update URL to reflect the new saved tier list
+        history.pushState(null, '', `tiermaker.html?id=${id}`);
+
         saveBtn.textContent = 'Saved!';
         setTimeout(() => {
-            saveBtn.textContent = originalText;
+            saveBtn.textContent = 'Save';
             saveBtn.disabled = false;
             progress.hide();
         }, 2000);
 
     } catch (err) {
         console.error('Error saving tier list:', err);
+        alert('Error saving: ' + err.message);
         saveBtn.textContent = 'Error!';
         progress.hide();
         setTimeout(() => {
@@ -828,20 +834,27 @@ window.currentTierlistCreatedAt = null;
 window.currentTierlistForkedFrom = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Track whether initial load has resolved ownership
+    let initialLoadDone = false;
+
     onAuthStateChanged(auth, (user) => {
         updateAuthUI(user);
-        if (user && window.location.pathname.includes('tiermaker')) {
+        // After login, re-check ownership for the loaded tier list
+        if (user && initialLoadDone && window.location.pathname.includes('tiermaker')) {
             const params = new URLSearchParams(window.location.search);
             const id = params.get('id');
             if (id && !window.currentTierlistId) {
                 getDoc(doc(db, 'tierlists', id)).then(snapshot => {
                     if (snapshot.exists() && snapshot.data().uid === user.uid) {
+                        // User owns this list — claim it
                         window.currentTierlistId = id;
                         window.currentTierlistName = snapshot.data().name;
                         window.currentTierlistCreatedAt = snapshot.data().createdAt;
+                        window.currentTierlistForkedFrom = null;
                         const publishBtn = document.getElementById('publish-btn');
                         if (publishBtn) publishBtn.textContent = snapshot.data().published ? 'Unpublish' : 'Publish';
                     }
+                    // If not owner, leave fork state intact so Save creates a fork
                 });
             }
         }
@@ -863,7 +876,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (shareBtn) shareBtn.addEventListener('click', shareTierlist);
 
     if (window.location.pathname.includes('tiermaker')) {
-        loadTierlistFromUrl();
+        loadTierlistFromUrl().then(() => { initialLoadDone = true; });
+    } else {
+        initialLoadDone = true;
     }
 
     if (document.getElementById('gallery')) {

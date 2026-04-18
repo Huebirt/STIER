@@ -401,29 +401,59 @@ async function downloadTierlist() {
     const totalW = 1600;
     const contentW = totalW - labelW - borderW * 2;
 
-    // Pre-calculate each row
-    const rowData = [];
-    rows.forEach(row => {
-        const label = row.querySelector('.tier-label');
-        const imgs = [...row.querySelectorAll('.tier-zone img.game-card')];
+    // Helper: load a clean (non-tainted) image from any src
+    async function loadCleanImage(src) {
+        // If it's a data URI or same-origin, use directly
+        if (src.startsWith('data:') || src.startsWith(window.location.origin)) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+        }
+        // Cross-origin: fetch as blob to avoid tainted canvas
+        try {
+            const resp = await fetch(src);
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => { resolve(img); URL.revokeObjectURL(url); };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+                img.src = url;
+            });
+        } catch {
+            // Fallback: try drawing from the DOM element directly
+            return null;
+        }
+    }
 
-        // Calculate how many images fit per line preserving aspect ratios
+    // Pre-calculate each row and load clean images
+    const rowData = [];
+    for (const row of rows) {
+        const label = row.querySelector('.tier-label');
+        const domImgs = [...row.querySelectorAll('.tier-zone img.game-card')];
+
         let lines = [[]];
         let lineW = 0;
-        imgs.forEach(img => {
-            const aspect = (img.naturalWidth || img.width || 100) / (img.naturalHeight || img.height || 100);
+        const imgEntries = [];
+
+        for (const domImg of domImgs) {
+            const cleanImg = await loadCleanImage(domImg.src) || domImg;
+            const aspect = (cleanImg.naturalWidth || cleanImg.width || 100) / (cleanImg.naturalHeight || cleanImg.height || 100);
             const w = Math.round(slotH * aspect);
             if (lineW + w + padding > contentW && lines[lines.length - 1].length > 0) {
                 lines.push([]);
                 lineW = 0;
             }
-            lines[lines.length - 1].push({ img, drawW: w, drawH: slotH });
+            lines[lines.length - 1].push({ img: cleanImg, drawW: w, drawH: slotH });
             lineW += w + padding;
-        });
+        }
 
         const rowH = Math.max(lines.length * (slotH + padding) + padding, 120);
         rowData.push({ label, lines, rowH });
-    });
+    }
 
     const totalH = rowData.reduce((sum, r) => sum + r.rowH + borderW, 0) + borderW;
 
