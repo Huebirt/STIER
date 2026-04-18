@@ -428,7 +428,7 @@ async function showMyProjects() {
             openBtn.textContent = 'Open';
             openBtn.className = 'project-open-btn';
             openBtn.addEventListener('click', () => {
-                window.location.href = `teirmaker.html?id=${docSnap.id}`;
+                window.location.href = `tiermaker.html?id=${docSnap.id}`;
             });
 
             const deleteBtn = document.createElement('button');
