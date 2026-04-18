@@ -149,24 +149,35 @@ function compressImage(src, callback, maxWidth = 400) {
 
 function readFolder(folder) {
     const reader = folder.createReader();
-    reader.readEntries(entries => {
-        entries.forEach(entry => {
-            if (entry.isFile) {
-                entry.file(file => {
-                    if (file.type.startsWith('image/')) {
-                        addImageToPool(file);
-                    }
-                });
-            } else if (entry.isDirectory) {
-                readFolder(entry);
-            }
+    const readBatch = () => {
+        reader.readEntries(entries => {
+            if (entries.length === 0) return; // done
+            entries.forEach(entry => {
+                if (entry.isFile) {
+                    entry.file(file => {
+                        if (file.type.startsWith('image/')) {
+                            addImageToPool(file);
+                        }
+                    });
+                } else if (entry.isDirectory) {
+                    readFolder(entry);
+                }
+            });
+            readBatch(); // keep reading until empty
         });
-    });
+    };
+    readBatch();
+}
+
+function isImageFile(file) {
+    if (file.type.startsWith('image/')) return true;
+    const ext = file.name.toLowerCase().split('.').pop();
+    return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'avif'].includes(ext);
 }
 
 function handleFileUpload(files) {
     Array.from(files).forEach(file => {
-        if (file.type.startsWith('image/')) {
+        if (isImageFile(file)) {
             addImageToPool(file);
         }
     });
