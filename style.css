@@ -9,7 +9,7 @@ header {
     background-color: #00183b;
     color: #ffffff;
     font-family: monospace;
-    margin: 0 0 2px 0;
+    margin: 0;
     padding: 20px;
     position: relative;
 }
@@ -276,7 +276,7 @@ nav {
 
 .tierlist-wrapper {
     position: relative;
-    margin: 0 20px;
+    margin: 16px 20px 0 20px;
 }
 
 .tierlist {
@@ -641,33 +641,36 @@ nav {
    ============================================================================ */
 .save-progress {
     width: 100%;
-    max-width: 800px;
-    margin: 0 auto 8px auto;
-    background: #1a2444;
-    border-radius: 6px;
+    margin: 0;
+    background: #001a3f;
     overflow: hidden;
-    height: 30px;
+    height: 3px;
     position: relative;
-    border: 2px solid #6f89ff;
     font-family: monospace;
 }
 
 .save-progress-bar {
     height: 100%;
     width: 0%;
-    background: #6f89ff;
+    background: linear-gradient(90deg, #6f89ff, #a78bfa);
     transition: width 0.3s ease;
 }
 
 .save-progress-text {
-    position: absolute;
-    top: 50%;
+    position: fixed;
+    bottom: 20px;
     left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 0.85rem;
+    transform: translateX(-50%);
+    font-size: 0.8rem;
     font-weight: bold;
     color: #fff;
+    background: #0d1f3c;
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 1px solid #1a3a6c;
     letter-spacing: 0.5px;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 /* ============================================================================
    PROJECT CARDS (My Projects modal - with thumbnails)
