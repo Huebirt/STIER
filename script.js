@@ -377,47 +377,98 @@ function initializeDragDrop() {
 // ============================================================================
 
 async function downloadTierlist() {
-    const element = document.getElementById('tierlist');
-
     const filename = prompt('Save as:', window.currentTierlistName || 'tierlist');
     if (!filename) return;
 
-    // Convert all cross-origin images to inline data URLs via fetch
-    const images = element.querySelectorAll('img');
-    const originalSrcs = [];
+    const rows = document.querySelectorAll('.tier-row');
+    if (rows.length === 0) return;
 
-    await Promise.all(Array.from(images).map(async (img, i) => {
-        originalSrcs[i] = img.src;
-        if (img.src.startsWith('data:')) return;
-        try {
-            // Use CORS proxy for cross-origin images
-            const url = img.src.includes(window.location.host)
-                ? img.src
-                : `https://corsproxy.io/?url=${encodeURIComponent(img.src)}`;
-            const resp = await fetch(url);
-            const blob = await resp.blob();
-            const dataUrl = await new Promise(resolve => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
-            });
-            img.src = dataUrl;
-        } catch (e) { /* keep original */ }
-    }));
+    // Measure dimensions
+    const labelW = 120;
+    const imgH = 80;
+    const imgW = 100;
+    const padding = 8;
+    const borderW = 2;
 
-    try {
-        const canvas = await html2canvas(element, { useCORS: false, allowTaint: false, logging: false });
-        const link = document.createElement('a');
-        link.download = filename.endsWith('.png') ? filename : filename + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    } catch (e) {
-        console.error('Export failed:', e);
-        alert('Export failed. Try again.');
+    // Calculate row heights based on content
+    const rowData = [];
+    rows.forEach(row => {
+        const label = row.querySelector('.tier-label');
+        const imgs = row.querySelectorAll('.tier-zone img.game-card');
+        const imgsPerRow = Math.max(Math.floor((1200 - labelW) / (imgW + padding)), 1);
+        const imgRows = Math.max(Math.ceil(imgs.length / imgsPerRow), 1);
+        const rowH = Math.max(imgRows * (imgH + padding) + padding, 90);
+        rowData.push({ label, imgs, rowH, imgsPerRow });
+    });
+
+    const totalH = rowData.reduce((sum, r) => sum + r.rowH + borderW, 0) + borderW;
+    const totalW = 1200;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = totalW;
+    canvas.height = totalH;
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    // Outer border
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = borderW;
+    ctx.strokeRect(0, 0, totalW, totalH);
+
+    let y = borderW;
+
+    for (const rd of rowData) {
+        // Label background
+        const color = rd.label.style.backgroundColor || window.getComputedStyle(rd.label).backgroundColor;
+        ctx.fillStyle = color || '#666';
+        ctx.fillRect(borderW, y, labelW, rd.rowH);
+
+        // Label text
+        const text = Array.from(rd.label.childNodes)
+            .filter(n => n.nodeType === Node.TEXT_NODE)
+            .map(n => n.textContent).join('').trim();
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 32px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, borderW + labelW / 2, y + rd.rowH / 2);
+
+        // Label right border
+        ctx.fillStyle = '#000';
+        ctx.fillRect(borderW + labelW, y, borderW, rd.rowH);
+
+        // Draw images — directly from DOM elements (already loaded)
+        let ix = labelW + borderW + padding;
+        let iy = y + padding;
+        let col = 0;
+        rd.imgs.forEach(img => {
+            if (col >= rd.imgsPerRow) {
+                col = 0;
+                ix = labelW + borderW + padding;
+                iy += imgH + padding;
+            }
+            try {
+                ctx.drawImage(img, ix, iy, imgW, imgH);
+            } catch (e) { /* skip tainted */ }
+            ix += imgW + padding;
+            col++;
+        });
+
+        // Row bottom border
+        y += rd.rowH;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, y, totalW, borderW);
+        y += borderW;
     }
 
-    // Restore original srcs
-    images.forEach((img, i) => { img.src = originalSrcs[i]; });
+    // Download
+    const link = document.createElement('a');
+    link.download = filename.endsWith('.png') ? filename : filename + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
 }
 
 function initializeExport() {
