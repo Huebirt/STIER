@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Tier list images — authenticated users can upload, anyone can read
+    match /tierlists/{tierlistId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Thumbnails — authenticated users can upload, anyone can read
+    match /thumbnails/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

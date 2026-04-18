@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /tierlists/{tierlistId} {
+      // Anyone can read published tier lists
+      allow read: if resource.data.published == true;
+
+      // Authenticated users can read their own tier lists
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+
+      // Authenticated users can create tier lists
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+
+      // Only the owner can update or delete
+      allow update, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+  }
+}
