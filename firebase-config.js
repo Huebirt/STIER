@@ -69,7 +69,7 @@ function updateAuthUI(user) {
 
     ['save-as-btn', 'publish-btn', 'my-projects-btn'].forEach(id => {
         const btn = document.getElementById(id);
-        if (btn) btn.style.display = user ? '' : 'none';
+        if (btn) btn.disabled = !user;
     });
 }
 
