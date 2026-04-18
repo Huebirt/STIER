@@ -383,31 +383,45 @@ async function downloadTierlist() {
     const rows = document.querySelectorAll('.tier-row');
     if (rows.length === 0) return;
 
-    // Measure dimensions
-    const labelW = 120;
-    const imgH = 80;
-    const imgW = 100;
-    const padding = 8;
-    const borderW = 2;
+    const scale = 2; // 2x resolution for sharpness
+    const labelW = 140;
+    const slotH = 100; // base height for images
+    const padding = 10;
+    const borderW = 3;
+    const totalW = 1600;
+    const contentW = totalW - labelW - borderW * 2;
 
-    // Calculate row heights based on content
+    // Pre-calculate each row
     const rowData = [];
     rows.forEach(row => {
         const label = row.querySelector('.tier-label');
-        const imgs = row.querySelectorAll('.tier-zone img.game-card');
-        const imgsPerRow = Math.max(Math.floor((1200 - labelW) / (imgW + padding)), 1);
-        const imgRows = Math.max(Math.ceil(imgs.length / imgsPerRow), 1);
-        const rowH = Math.max(imgRows * (imgH + padding) + padding, 90);
-        rowData.push({ label, imgs, rowH, imgsPerRow });
+        const imgs = [...row.querySelectorAll('.tier-zone img.game-card')];
+
+        // Calculate how many images fit per line preserving aspect ratios
+        let lines = [[]];
+        let lineW = 0;
+        imgs.forEach(img => {
+            const aspect = (img.naturalWidth || img.width || 100) / (img.naturalHeight || img.height || 100);
+            const w = Math.round(slotH * aspect);
+            if (lineW + w + padding > contentW && lines[lines.length - 1].length > 0) {
+                lines.push([]);
+                lineW = 0;
+            }
+            lines[lines.length - 1].push({ img, drawW: w, drawH: slotH });
+            lineW += w + padding;
+        });
+
+        const rowH = Math.max(lines.length * (slotH + padding) + padding, 120);
+        rowData.push({ label, lines, rowH });
     });
 
     const totalH = rowData.reduce((sum, r) => sum + r.rowH + borderW, 0) + borderW;
-    const totalW = 1200;
 
     const canvas = document.createElement('canvas');
-    canvas.width = totalW;
-    canvas.height = totalH;
+    canvas.width = totalW * scale;
+    canvas.height = totalH * scale;
     const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
 
     // Background
     ctx.fillStyle = '#1a1a2e';
@@ -431,7 +445,7 @@ async function downloadTierlist() {
             .filter(n => n.nodeType === Node.TEXT_NODE)
             .map(n => n.textContent).join('').trim();
         ctx.fillStyle = '#333';
-        ctx.font = 'bold 32px monospace';
+        ctx.font = 'bold 36px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, borderW + labelW / 2, y + rd.rowH / 2);
@@ -440,21 +454,17 @@ async function downloadTierlist() {
         ctx.fillStyle = '#000';
         ctx.fillRect(borderW + labelW, y, borderW, rd.rowH);
 
-        // Draw images — directly from DOM elements (already loaded)
-        let ix = labelW + borderW + padding;
+        // Draw images preserving aspect ratio
         let iy = y + padding;
-        let col = 0;
-        rd.imgs.forEach(img => {
-            if (col >= rd.imgsPerRow) {
-                col = 0;
-                ix = labelW + borderW + padding;
-                iy += imgH + padding;
-            }
-            try {
-                ctx.drawImage(img, ix, iy, imgW, imgH);
-            } catch (e) { /* skip tainted */ }
-            ix += imgW + padding;
-            col++;
+        rd.lines.forEach(line => {
+            let ix = labelW + borderW * 2 + padding;
+            line.forEach(({ img, drawW, drawH }) => {
+                try {
+                    ctx.drawImage(img, ix, iy, drawW, drawH);
+                } catch (e) { /* skip tainted */ }
+                ix += drawW + padding;
+            });
+            iy += slotH + padding;
         });
 
         // Row bottom border
