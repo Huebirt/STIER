@@ -620,13 +620,29 @@ async function showMyProjects() {
                 window.location.href = `tiermaker.html?id=${docSnap.id}`;
             });
 
+            if (data.published) {
+                const unpubBtn = document.createElement('button');
+                unpubBtn.textContent = 'Unpublish';
+                unpubBtn.className = 'project-unpublish-btn';
+                unpubBtn.addEventListener('click', async () => {
+                    await setDoc(doc(db, 'tierlists', docSnap.id), { published: false }, { merge: true });
+                    unpubBtn.remove();
+                    meta.textContent = dateStr;
+                });
+                actions.appendChild(unpubBtn);
+            }
+
             const deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Delete';
             deleteBtn.className = 'project-delete-btn';
             deleteBtn.addEventListener('click', async () => {
-                if (confirm(`Delete "${data.name || 'Untitled'}"?`)) {
+                if (confirm(`Delete "${data.name || 'Untitled'}"? This will permanently remove it${data.published ? ' from the gallery and' : ''} from your projects.`)) {
                     await deleteDoc(doc(db, 'tierlists', docSnap.id));
                     card.remove();
+                    if (window.currentTierlistId === docSnap.id) {
+                        window.currentTierlistId = null;
+                        window.currentTierlistName = null;
+                    }
                     if (body.children.length === 0) {
                         body.innerHTML = '<p>No saved tier lists yet.</p>';
                     }

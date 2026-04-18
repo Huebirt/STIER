@@ -636,6 +636,15 @@ nav {
     background: #c0392b;
 }
 
+.project-unpublish-btn {
+    background: #f39c12;
+    color: white;
+}
+
+.project-unpublish-btn:hover {
+    background: #d68910;
+}
+
 /* ============================================================================
    SAVE PROGRESS BAR
    ============================================================================ */
