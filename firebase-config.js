@@ -191,40 +191,48 @@ function generateThumbnail(data) {
             return;
         }
 
-        // Grid layout
-        const cols = Math.ceil(Math.sqrt(allSrcs.length));
-        const rows = Math.ceil(allSrcs.length / cols);
+        // Limit to 20 images, then calculate grid from that count
+        const maxImages = Math.min(allSrcs.length, 20);
+        const srcsToUse = allSrcs.slice(0, maxImages);
+        const cols = Math.ceil(Math.sqrt(maxImages));
+        const rows = Math.ceil(maxImages / cols);
         const cellW = Math.floor(400 / cols);
         const cellH = Math.floor(200 / rows);
-        const maxImages = Math.min(allSrcs.length, 20);
 
         let loaded = 0;
+        let resolved = false;
         const images = [];
+
+        function finalize() {
+            if (resolved) return;
+            resolved = true;
+            for (let j = 0; j < maxImages; j++) {
+                if (!images[j] || !images[j].naturalWidth) continue;
+                const col = j % cols;
+                const row = Math.floor(j / cols);
+                try {
+                    ctx.drawImage(images[j], col * cellW, row * cellH, cellW, cellH);
+                } catch (e) { /* skip tainted/broken */ }
+            }
+            resolve(canvas.toDataURL('image/webp', 0.6));
+        }
 
         for (let i = 0; i < maxImages; i++) {
             const img = new Image();
             img.crossOrigin = 'anonymous';
-            img.onload = img.onerror = () => {
+            img.onload = () => {
                 images[i] = img;
-                loaded++;
-                if (loaded >= maxImages) {
-                    for (let j = 0; j < maxImages; j++) {
-                        const col = j % cols;
-                        const row = Math.floor(j / cols);
-                        const x = col * cellW;
-                        const y = row * cellH;
-                        try {
-                            ctx.drawImage(images[j], x, y, cellW, cellH);
-                        } catch (e) { /* skip broken */ }
-                    }
-                    resolve(canvas.toDataURL('image/webp', 0.6));
-                }
+                if (++loaded >= maxImages) finalize();
             };
-            img.src = allSrcs[i];
+            img.onerror = () => {
+                images[i] = null;
+                if (++loaded >= maxImages) finalize();
+            };
+            img.src = srcsToUse[i];
         }
 
-        // Timeout fallback
-        setTimeout(() => resolve(canvas.toDataURL('image/webp', 0.6)), 5000);
+        // Timeout fallback — resolve with whatever loaded so far
+        setTimeout(finalize, 5000);
     });
 }
 
