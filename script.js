@@ -376,50 +376,44 @@ function initializeDragDrop() {
 // EXPORT FUNCTIONALITY
 // ============================================================================
 
-function downloadTierlist() {
+async function downloadTierlist() {
     const element = document.getElementById('tierlist');
 
     const filename = prompt('Save as:', window.currentTierlistName || 'tierlist');
     if (!filename) return;
 
-    // Convert all cross-origin images to inline data URLs so html2canvas can render them
+    // Convert all cross-origin images to inline data URLs via fetch
     const images = element.querySelectorAll('img');
     const originalSrcs = [];
 
-    const convertPromises = Array.from(images).map((img, i) => {
+    await Promise.all(Array.from(images).map(async (img, i) => {
         originalSrcs[i] = img.src;
-        if (img.src.startsWith('data:')) return Promise.resolve();
-        return new Promise(resolve => {
-            const temp = new Image();
-            temp.crossOrigin = 'anonymous';
-            temp.onload = () => {
-                try {
-                    const c = document.createElement('canvas');
-                    c.width = temp.naturalWidth;
-                    c.height = temp.naturalHeight;
-                    c.getContext('2d').drawImage(temp, 0, 0);
-                    img.src = c.toDataURL('image/png');
-                } catch (e) { /* keep original if tainted */ }
-                resolve();
-            };
-            temp.onerror = () => resolve();
-            temp.src = img.src;
-        });
-    });
+        if (img.src.startsWith('data:')) return;
+        try {
+            const resp = await fetch(img.src);
+            const blob = await resp.blob();
+            const dataUrl = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+            img.src = dataUrl;
+        } catch (e) { /* keep original */ }
+    }));
 
-    Promise.all(convertPromises).then(() => {
-        return html2canvas(element, { allowTaint: true, logging: false });
-    }).then(canvas => {
-        // Restore original srcs
-        images.forEach((img, i) => { img.src = originalSrcs[i]; });
-
+    try {
+        const canvas = await html2canvas(element, { useCORS: false, allowTaint: false, logging: false });
         const link = document.createElement('a');
         link.download = filename.endsWith('.png') ? filename : filename + '.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
-    }).catch(() => {
-        images.forEach((img, i) => { img.src = originalSrcs[i]; });
-    });
+    } catch (e) {
+        console.error('Export failed:', e);
+        alert('Export failed. Try again.');
+    }
+
+    // Restore original srcs
+    images.forEach((img, i) => { img.src = originalSrcs[i]; });
 }
 
 function initializeExport() {
